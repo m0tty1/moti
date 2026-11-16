@@ -11,3 +11,4 @@ export function rankPlayers(players){
  return sorted.map((p,index)=>{const rank=index>0&&p.score===previousScore?previousRank:index+1;previousScore=p.score;previousRank=rank;const {index:originalIndex,...entry}=p;return {...entry,rank};});
 }
 export function outsideBounds(rect,x,y){return x<rect.left||x>rect.right||y<rect.top||y>rect.bottom;}
+export function resultRevealDelay(state){return ['roundOver','finished'].includes(state?.phase)&&state?.alarm>=3?2000:0;}

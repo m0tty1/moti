@@ -1,7 +1,7 @@
 import { artFor } from './loot-art.js';
 import { vaultStage,VAULT_STAGES } from './progression.js';
 import {LOOT_CATALOG} from './loot-catalog.js';
-import {catalogSections,rankPlayers,outsideBounds} from './view-model.js';
+import {catalogSections,rankPlayers,outsideBounds,resultRevealDelay} from './view-model.js';
 import {rareEffectPlan,createRareEffect} from './rare-effect.js';
 const $=id=>document.getElementById(id);
 // Reserve the dock's real height, including wrapped text and device safe areas.
@@ -9,7 +9,7 @@ new ResizeObserver(entries=>{document.body.style.setProperty('--decision-space',
 const savedVolumeRaw=localStorage.getItem('vault-volume'),savedVolume=Number(savedVolumeRaw);
 let masterVolume=savedVolumeRaw!==null&&Number.isFinite(savedVolume)&&savedVolume>=0&&savedVolume<=100?savedVolume/100:.65,sound=masterVolume>0;
 let state=null,session=null,events=null,reconnectTimer=null,busy=false,lastCard='',audio=null,fx=null,toastTimer,opening=false,openingTimer,rareHighlightTimer;
-let shownResultKey='';
+let shownResultKey='',resultDelayTimer=null,resultDelayKey='';
 let previewing=false;
 const BGM_VOLUME=.28,bgm=new Audio('/assets/heist-music.mp3');let bgmUnlocked=false;bgm.loop=true;bgm.preload='auto';bgm.volume=BGM_VOLUME*masterVolume;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -90,8 +90,10 @@ function renderResults(){
  next.onclick=()=>perform(async()=>{next.disabled=true;try{await action('start');$('results').close();}catch(e){next.disabled=false;throw e;}});
  $('results-host-note').hidden=s.host===s.you;
 }
-function showResults(){if(!state||!['roundOver','finished'].includes(state.phase))return;renderResults();if(!$('results').open)$('results').showModal();shownResultKey=`${state.code}:${state.round}:${state.phase}`;}
-document.querySelector('.brand').onclick=e=>{e.preventDefault();cancelOpening();clearTimeout(reconnectTimer);events?.close();events=null;state=null;session=null;sessionStorage.removeItem('vault-session');history.replaceState(null,'','/');$('home').hidden=false;$('game').hidden=true;document.body.dataset.screen='home';$('connection').textContent='2–8 PLAYERS';syncBgm();};
+function cancelResultDelay(){clearTimeout(resultDelayTimer);resultDelayTimer=null;resultDelayKey='';}
+function showResults(){if(!state||!['roundOver','finished'].includes(state.phase))return;cancelResultDelay();renderResults();if(!$('results').open)$('results').showModal();shownResultKey=`${state.code}:${state.round}:${state.phase}`;}
+function scheduleResults(key,delay){if(resultDelayKey===key)return;cancelResultDelay();resultDelayKey=key;resultDelayTimer=setTimeout(()=>{resultDelayTimer=null;resultDelayKey='';if(state&&`${state.code}:${state.round}:${state.phase}`===key&&!document.querySelector('dialog[open]'))showResults();},delay);}
+document.querySelector('.brand').onclick=e=>{e.preventDefault();cancelOpening();cancelResultDelay();clearTimeout(reconnectTimer);events?.close();events=null;state=null;session=null;sessionStorage.removeItem('vault-session');history.replaceState(null,'','/');$('home').hidden=false;$('game').hidden=true;document.body.dataset.screen='home';$('connection').textContent='2–8 PLAYERS';syncBgm();};
 const invited=new URL(location.href).searchParams.get('room');if(/^\d{4}$/.test(invited||''))$('code').value=invited;$('code').oninput=()=>{$('code').value=$('code').value.replace(/\D/g,'').slice(0,4);};$('name').value=localStorage.getItem('vault-name')||'';
 async function enter(mode){const name=$('name').value.trim();if(!name){$('name').focus();throw new Error('名前を入力してください。');}localStorage.setItem('vault-name',name);
   if(mode==='join'){const code=$('code').value.trim();if(!/^\d{4}$/.test(code))throw new Error('数字4桁の部屋コードを入力してください。');session=await api(`/api/rooms/${code}/join`,{name});}
@@ -166,7 +168,7 @@ function render(){
   if(opening)document.querySelectorAll('#actions button').forEach(b=>b.disabled=true);
   $('start')?.addEventListener('click',()=>perform(()=>action('start')));
   for(const choice of ['stay','escape'])$(choice)?.addEventListener('click',()=>perform(async()=>{document.querySelectorAll('#actions button').forEach(b=>b.disabled=true);try{await action('choice',choice);}catch(e){render();throw e;}}));
-  if(ended){const ranked=rankPlayers(s.players),mine=ranked.find(p=>p.id===s.you);$('result').innerHTML=`<div class="result-box"><div class="result-inline-heading">${done?'最終結果':'ラウンド結果'}</div><p>あなたは <strong>${mine.rank}位</strong> / ${ranked.length}人</p><p>合計 <strong>${mine.score} G</strong> ・ 今回 +${mine.gain} G</p><button id="view-results" class="secondary">全員のリザルトを見る →</button></div>`;$('view-results').onclick=showResults;const key=`${s.code}:${s.round}:${s.phase}`;if(!opening&&shownResultKey!==key&&!document.querySelector('dialog[open]'))showResults();}else{$('result').innerHTML='';if($('results').open)$('results').close();}
+  if(ended){const ranked=rankPlayers(s.players),mine=ranked.find(p=>p.id===s.you);$('result').innerHTML=`<div class="result-box"><div class="result-inline-heading">${done?'最終結果':'ラウンド結果'}</div><p>あなたは <strong>${mine.rank}位</strong> / ${ranked.length}人</p><p>合計 <strong>${mine.score} G</strong> ・ 今回 +${mine.gain} G</p><button id="view-results" class="secondary">全員のリザルトを見る →</button></div>`;$('view-results').onclick=showResults;const key=`${s.code}:${s.round}:${s.phase}`;if(!opening&&shownResultKey!==key&&!document.querySelector('dialog[open]')){const delay=resultRevealDelay(s);if(delay)scheduleResults(key,delay);else showResults();}}else{cancelResultDelay();$('result').innerHTML='';if($('results').open)$('results').close();}
   tick();
 }
 function tick(){if(!state)return;const seconds=Math.max(0,Math.ceil((state.deadline-Date.now())/1000));$('timer').textContent=state.phase==='choosing'?`${seconds}s`:'';}

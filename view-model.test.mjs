@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {LOOT_CATALOG} from './public/loot-catalog.js';
-import {catalogSections,rankPlayers,outsideBounds} from './public/view-model.js';
+import {catalogSections,rankPlayers,outsideBounds,resultRevealDelay} from './public/view-model.js';
 
 test('お宝は小型→中型→大型に並び、共有品を重複させず全70種類を掲載',()=>{
  const sections=catalogSections(LOOT_CATALOG);assert.deepEqual(sections.map(s=>s.key),['small','medium','large']);
@@ -18,4 +18,8 @@ test('合計Gで順位を付け、同点は同順位、元の参加者配列は�
 test('ダイアログの内側や境界では閉じず、外側だけを判定',()=>{
  const rect={left:100,right:400,top:100,bottom:600};for(const [x,y]of [[100,100],[400,600],[250,300]])assert.equal(outsideBounds(rect,x,y),false);
  for(const [x,y]of [[99,300],[401,300],[250,99],[250,601]])assert.equal(outsideBounds(rect,x,y),true);
+});
+test('3個目の警報で封鎖された時だけリザルトを2秒遅らせる',()=>{
+ assert.equal(resultRevealDelay({phase:'roundOver',alarm:3}),2000);assert.equal(resultRevealDelay({phase:'finished',alarm:4}),2000);
+ assert.equal(resultRevealDelay({phase:'roundOver',alarm:2}),0);assert.equal(resultRevealDelay({phase:'choosing',alarm:3}),0);
 });
