@@ -26,7 +26,7 @@ function openVault(card,key,rare){
   const duration=reduced?0:spectating?(rare?200:650):Math.min(1600,Math.max(0,remaining-4000));
   const finish=()=>{
     if(!state||lastCard!==key)return;opening=false;field.classList.remove('opening');$('game').classList.remove('is-opening');$('card').classList.add('flip');
-    if(rare){field.classList.add(card.rarity==='legendary'?'legendary-arrival':'rare-arrival');rareHighlightTimer=setTimeout(()=>field.classList.remove('rare-arrival','legendary-arrival'),2200);}else{beep(card.type==='alarm');fx?.burst(card.type==='alarm',false);}
+    if(rare){field.classList.add('rare-arrival');rareHighlightTimer=setTimeout(()=>field.classList.remove('rare-arrival','legendary-arrival'),2200);}else{beep(card.type==='alarm');fx?.burst(card.type==='alarm',false);}
     queueMicrotask(()=>{if(state&&lastCard===key)render();});
   };
   const reveal=()=>{
@@ -46,14 +46,10 @@ function renderCatalog(){const sections=catalogSections(LOOT_CATALOG,$('catalog-
 $('catalog-open').onclick=()=>{renderCatalog();$('catalog').showModal();};$('close-catalog').onclick=()=>$('catalog').close();$('catalog-filter').onchange=renderCatalog;
 $('home-catalog').onclick=()=>$('catalog-open').click();$('home-help').onclick=()=>$('help').click();
 $('home-effects').onclick=()=>$('effects').showModal();$('close-effects').onclick=()=>$('effects').close();$('effects-sound').onclick=()=>$('sound').click();
-const effectCards={rare:LOOT_CATALOG.find(p=>p.id==='mona-lisa'),legendary:LOOT_CATALOG.find(p=>p.id==='blue-diamond')};
-for(const tier of ['rare','legendary']){
- $('effect-art-'+tier).innerHTML=artFor(effectCards[tier]);
- $('preview-'+tier).onclick=()=>{
-  const card={type:'treasure',...effectCards[tier]};previewing=true;$('effects').close();
-  rareFX.play(card,rareEffectPlan(card,{reducedMotion:reduced}),finishPreview);
- };
-}
+const effectCard=LOOT_CATALOG.find(p=>p.id==='mona-lisa'),effectPreview=$('preview-rare').closest('.effect-preview');
+$('effect-art-rare').innerHTML=artFor(effectCard);effectPreview.querySelector('h3').textContent='レア／最高レア';
+$('preview-legendary').closest('.effect-preview').remove();
+$('preview-rare').onclick=()=>{const card={type:'treasure',...effectCard};previewing=true;$('effects').close();rareFX.play(card,rareEffectPlan(card,{reducedMotion:reduced}),finishPreview);};
 function finishPreview(){previewing=false;if(document.body.dataset.screen==='home'&&!document.querySelector('dialog[open]'))$('effects').showModal();}
 document.addEventListener('keydown',e=>{if(previewing&&e.key==='Escape'){e.preventDefault();rareFX.cancel();finishPreview();}});
 $('close-results').onclick=()=>$('results').close();$('results-back').onclick=()=>$('results').close();

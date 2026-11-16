@@ -11,9 +11,9 @@ function fixture(){
  const advance=ms=>{const until=now+ms;while(true){const due=[...jobs.values()].filter(j=>j.at<=until).sort((a,b)=>a.at-b.at)[0];if(!due)break;now=due.at;jobs.delete(due.id);due.fn();}now=until;};
  return {root,nodes,setTimer,clearTimer,advance,all};
 }
-test('通常品と警報では暗転せず、レアと最高レアは同じ長さ',()=>{
+test('通常品と警報では暗転せず、レアと最高レアは完全に同じ演出',()=>{
  assert.equal(rareEffectPlan({...rare,rarity:'common'}),null);assert.equal(rareEffectPlan({type:'alarm',rarity:'rare'}),null);
- assert.equal(rareEffectPlan(rare).mode,'fullscreen');assert.equal(rareEffectPlan(legendary).totalMs,rareEffectPlan(rare).totalMs);
+ assert.equal(rareEffectPlan(rare).mode,'fullscreen');assert.deepEqual(rareEffectPlan(legendary),rareEffectPlan(rare));
 });
 test('動きを減らす設定・他の画面・残り時間不足なら操作を妨げる暗転を省略',()=>{
  for(const options of [{reducedMotion:true},{obscured:true},{remainingMs:1000}])assert.equal(rareEffectPlan(rare,options).mode,'inline');
