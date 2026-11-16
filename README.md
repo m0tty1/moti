@@ -1,4 +1,4 @@
-# 金庫ブレイク / VAULT BREAK
+# ギャンブル金庫タイム！
 
 公開版: https://vault-break.vault-break.workers.dev/
 
