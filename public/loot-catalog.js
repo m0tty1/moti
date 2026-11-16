@@ -77,13 +77,13 @@ function assignVaults(entry){
 }
 export const LOOT_CATALOG=Object.freeze([
  ...common.map(([id,name,item,value,tint])=>assignVaults({id,name,item,value,tint,rarity:'common',minDepth:value<=15?1:value<=30?3:value<=45?6:9})),
- ...rare.map(([id,name,item,value,tint,minDepth])=>assignVaults({id,name,item,value,tint,minDepth,rarity:value>=160?'legendary':'rare'}))
+ ...rare.map(([id,name,item,value,tint,minDepth])=>assignVaults({id,name,item,value,tint,minDepth,rarity:id==='blue-diamond'?'dpr':value>=160?'legendary':'rare'}))
 ]);
-export function lootPool(depth,rare=false){
+export function lootPool(depth,tier='common'){
  const stage=vaultStage(depth);
- return LOOT_CATALOG.filter(p=>p.minDepth<=depth&&p.vaults.includes(stage.key)&&(rare?p.rarity!=='common':p.rarity==='common'));
+ return LOOT_CATALOG.filter(p=>p.minDepth<=depth&&p.vaults.includes(stage.key)&&(tier===true?(p.rarity!=='common'&&p.rarity!=='dpr'):tier==='rare'?(p.rarity==='rare'||p.rarity==='legendary'):p.rarity===tier));
 }
 export function lootRange(depth){
- const common=lootPool(depth),rare=lootPool(depth,true);
+ const common=lootPool(depth),rare=lootPool(depth,'rare');
  return {minReward:Math.min(...common.map(p=>p.value)),maxReward:Math.max(...common.map(p=>p.value)),rareMinReward:Math.min(...rare.map(p=>p.value)),rareMaxReward:Math.max(...rare.map(p=>p.value))};
 }

@@ -24,11 +24,12 @@ const initial=await hostClient.next();assert.equal(initial.players.length,2);ass
 await request(`/api/rooms/${host.code}/action`,{type:'start'},host.token);
 let state=await hostClient.next();while(state.phase!=='choosing')state=await hostClient.next();
 assert.equal(state.round,1);assert.equal(state.turn,1);
-await Promise.all([
- request(`/api/rooms/${host.code}/action`,{type:'choice',choice:'escape',turn:state.turn,round:state.round},host.token),
- request(`/api/rooms/${host.code}/action`,{type:'choice',choice:'escape',turn:state.turn,round:state.round},guest.token)
-]);
-for(let i=0;i<6;i++){state=await hostClient.next();if(state.phase==='roundOver')break;}
+assert.equal(state.currentPlayerId,host.id);
+await request(`/api/rooms/${host.code}/action`,{type:'choice',choice:'escape',turn:state.turn,round:state.round},host.token);
+for(let i=0;i<12;i++){state=await hostClient.next();if(state.phase==='choosing'&&state.currentPlayerId===guest.id)break;}
+assert.equal(state.currentPlayerId,guest.id);
+await request(`/api/rooms/${host.code}/action`,{type:'choice',choice:'escape',turn:state.turn,round:state.round},guest.token);
+for(let i=0;i<12;i++){state=await hostClient.next();if(state.phase==='roundOver')break;}
 assert.equal(state.phase,'roundOver');assert.ok(state.players.every(person=>person.score>0));
 hostSocket.close();guestSocket.close();
 console.log(`Cloudflare smoke OK: ${host.code}, 2 players, WebSocket sync, round complete`);

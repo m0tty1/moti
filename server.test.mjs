@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 
-test('HTTP実対戦：2人・8人で5ラウンド完走、上限・認証・秘匿・再戦', {timeout:45000},async()=>{
- const proc=spawn(process.execPath,['server.mjs'],{cwd:new URL('.',import.meta.url),env:{...process.env,PORT:'4184'},stdio:['ignore','pipe','pipe']});
+test('HTTP実対戦：2人・8人の順番制で5ラウンド完走、上限・認証・再戦', {timeout:45000},async()=>{
+ const proc=spawn(process.execPath,['server.mjs'],{cwd:new URL('.',import.meta.url),env:{...process.env,PORT:'4184',VAULT_REVEAL_MS:'5'},stdio:['ignore','pipe','pipe']});
  try{
   await once(proc.stdout,'data');
   const request=async(path,data,token)=>{const res=await fetch(`http://localhost:4184${path}`,{method:data?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:data?JSON.stringify(data):undefined});return {status:res.status,data:await res.json()};};
@@ -17,12 +17,15 @@ test('HTTP実対戦：2人・8人で5ラウンド完走、上限・認証・秘�
    for(let round=1;round<=5;round++){
     assert.equal((await request(`${base}/action`,{type:'start'},host.token)).status,200);
     const before=(await request(base,null,host.token)).data;assert.equal(before.round,round);
-    for(let i=0;before.phase==='choosing'&&i<count;i++){
-     assert.equal((await request(`${base}/action`,{type:'choice',choice:'escape',turn:before.turn,round},players[i].token)).status,200);
-     if(i===0){const secret=(await request(base,null,players[1].token)).data;assert.equal(secret.players[0].choice,null);assert.equal(secret.players[0].ready,true);assert.equal((await request(`${base}/action`,{type:'choice',choice:'escape',turn:before.turn,round},players[0].token)).status,400);}
+    let after=before,checkedWrongTurn=false;
+    while(!['roundOver','finished'].includes(after.phase)){
+     if(after.phase==='reveal'){await new Promise(r=>setTimeout(r,10));after=(await request(base,null,host.token)).data;continue;}
+     const actor=players.find(candidate=>candidate.id===after.currentPlayerId);assert.ok(actor);
+     if(!checkedWrongTurn){const wrong=players.find(candidate=>candidate.id!==after.currentPlayerId);assert.equal((await request(`${base}/action`,{type:'choice',choice:'escape',turn:after.turn,round},wrong.token)).status,400);checkedWrongTurn=true;}
+     assert.equal((await request(`${base}/action`,{type:'choice',choice:'escape',turn:after.turn,round},actor.token)).status,200);
+     after=(await request(base,null,host.token)).data;
     }
-    let after;for(let i=0;i<30;i++){after=(await request(base,null,host.token)).data;if(after.phase!=='reveal')break;await new Promise(r=>setTimeout(r,100));}
-    assert.equal(after.phase,round===5?'finished':'roundOver');assert.ok(after.players.every(p=>p.score===after.players[0].score));assert.ok(after.players.every(p=>!('token'in p)));
+    assert.equal(after.phase,round===5?'finished':'roundOver');assert.ok(after.players.every(p=>p.score>0));assert.ok(after.players.every(p=>!('token'in p)));
    }
    assert.equal((await request(`${base}/action`,{type:'start'},host.token)).status,200);const again=(await request(base,null,host.token)).data;assert.equal(again.round,1);assert.ok(again.players.every(p=>p.score===0));
   }

@@ -1,4 +1,4 @@
-import {newRoom,player,startRound,resolve,advance,view,riskProfile} from '../engine.mjs';
+import {newRoom,player,startRound,resolve,advance,view,riskProfile,currentPlayer} from '../engine.mjs';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});
 const error=(message,status=400)=>json({error:message},status);
@@ -46,8 +46,8 @@ export class VaultRoom {
  }
  async schedule(){
   if(this.room.phase!=='choosing')return;
-  const next=riskProfile(this.room.turn+1,this.room.alarm),escapeChance=Math.min(.9,.025+next.bustChance*.015+Math.min(.24,this.room.pot/1800));
-  for(const p of this.room.players.filter(p=>p.bot&&p.active&&!p.choice))p.choice=Math.random()<escapeChance?'escape':'stay';
+  const next=riskProfile(this.room.turn+1,this.room.alarm),actor=currentPlayer(this.room),escapeChance=Math.min(.9,.025+next.bustChance*.015+Math.min(.24,(actor?.pot||0)/1800));
+  if(actor?.bot&&!actor.choice)actor.choice=Math.random()<escapeChance?'escape':'stay';
   if(resolve(this.room)){await this.emit();await this.ctx.storage.setAlarm(Date.now()+1700);return;}
   await this.save();await this.ctx.storage.setAlarm(this.room.deadline);
  }
@@ -56,7 +56,7 @@ export class VaultRoom {
   if(this.room.phase==='reveal'){advance(this.room);await this.emit();await this.schedule();return;}
   if(this.room.phase==='choosing'){
    if(Date.now()+50<this.room.deadline){await this.ctx.storage.setAlarm(this.room.deadline);return;}
-   for(const p of this.room.players.filter(p=>p.active&&!p.choice))p.choice='escape';await this.schedule();
+   const actor=currentPlayer(this.room);if(actor?.active&&!actor.choice)actor.choice='escape';await this.schedule();
   }
  }
  async fetch(request){
@@ -83,7 +83,7 @@ export class VaultRoom {
      if(person.id!==this.room.host)return error('ホストが開始します。',403);if(!['lobby','roundOver','finished'].includes(this.room.phase))return error('現在のラウンドを終えてください。');if(this.room.players.length<2)return error('2人以上で開始できます。');
      if(this.room.phase==='finished'){this.room.round=0;this.room.players.forEach(p=>p.score=0);}startRound(this.room);await this.emit();await this.schedule();
     }else if(body.type==='choice'){
-     if(this.room.phase!=='choosing'||!person.active||person.choice||body.turn!==this.room.turn||body.round!==this.room.round)return error('この選択は受付終了です。');if(!['stay','escape'].includes(body.choice))return error('選択を確認してください。');
+     const actor=currentPlayer(this.room);if(this.room.phase!=='choosing'||actor?.id!==person.id||!person.active||person.choice||body.turn!==this.room.turn||body.round!==this.room.round)return error(actor?`今は${actor.name}のターンです。`:'この選択は受付終了です。');if(!['stay','escape'].includes(body.choice))return error('選択を確認してください。');
      person.choice=body.choice;await this.emit();await this.schedule();
     }else return error('操作を確認してください。');
     return json({ok:true});

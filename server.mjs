@@ -4,10 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { join, extname, resolve as pathResolve } from 'node:path';
 import { randomInt } from 'node:crypto';
 import { WebSocketServer } from 'ws';
-import { newRoom, player, startRound, resolve, advance, view, riskProfile } from './engine.mjs';
+import { newRoom, player, startRound, resolve, advance, view, riskProfile, currentPlayer } from './engine.mjs';
 
 const rooms=new Map(), streams=new Map(), root=fileURLToPath(new URL('./public/',import.meta.url));
 const port=Number(process.env.PORT||4173);
+const revealMs=Math.max(0,Number(process.env.VAULT_REVEAL_MS||1700));
 const clients=room=>streams.get(room.code)||new Set();
 function send(stream,data){if(typeof stream.res.send==='function')stream.res.send(data);else stream.res.write(`data: ${data}\n\n`);}
 function emit(room){room.revision++;for(const s of clients(room))send(s,JSON.stringify(view(room,s.id)));}
@@ -15,10 +16,10 @@ function schedule(room){
   clearTimeout(room.clock);
   if(room.phase!=='choosing')return;
   const next=riskProfile(room.turn+1,room.alarm);
-  const escapeChance=Math.min(.9,.025+next.bustChance*.015+Math.min(.24,room.pot/1800));
-  for(const p of room.players.filter(p=>p.bot&&p.active&&!p.choice))p.choice=Math.random()<escapeChance?'escape':'stay';
-  if(resolve(room)){emit(room);room.clock=setTimeout(()=>{advance(room);emit(room);schedule(room);},1700);return;}
-  room.clock=setTimeout(()=>{for(const p of room.players.filter(p=>p.active&&!p.choice))p.choice='escape';schedule(room);},Math.max(0,room.deadline-Date.now()));
+  const actor=currentPlayer(room),escapeChance=Math.min(.9,.025+next.bustChance*.015+Math.min(.24,(actor?.pot||0)/1800));
+  if(actor?.bot&&!actor.choice)actor.choice=Math.random()<escapeChance?'escape':'stay';
+  if(resolve(room)){emit(room);room.clock=setTimeout(()=>{advance(room);emit(room);schedule(room);},revealMs);return;}
+  room.clock=setTimeout(()=>{const timedOut=currentPlayer(room);if(timedOut?.active&&!timedOut.choice)timedOut.choice='escape';schedule(room);},Math.max(0,room.deadline-Date.now()));
 }
 function json(res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));}
 function fail(message,status=400){throw Object.assign(new Error(message),{status});}
@@ -55,7 +56,7 @@ const server=http.createServer(async(req,res)=>{
           if(p.id!==room.host)fail('ホストが開始します。',403);if(!['lobby','roundOver','finished'].includes(room.phase))fail('現在のラウンドを終えてください。');if(room.players.length<2)fail('2人以上で開始できます。');
           if(room.phase==='finished'){room.round=0;room.players.forEach(p=>p.score=0);}startRound(room);emit(room);schedule(room);
         }else if(b.type==='choice'){
-          if(room.phase!=='choosing'||!p.active||p.choice||b.turn!==room.turn||b.round!==room.round)fail('この選択は受付終了です。');if(!['stay','escape'].includes(b.choice))fail('選択を確認してください。');
+          const actor=currentPlayer(room);if(room.phase!=='choosing'||actor?.id!==p.id||!p.active||p.choice||b.turn!==room.turn||b.round!==room.round)fail(actor?`今は${actor.name}のターンです。`:'この選択は受付終了です。');if(!['stay','escape'].includes(b.choice))fail('選択を確認してください。');
           p.choice=b.choice;emit(room);schedule(room);
         }else fail('操作を確認してください。');
         return json(res,200,{ok:true});
