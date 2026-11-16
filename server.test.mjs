@@ -9,7 +9,7 @@ test('HTTP実対戦：2人・8人で5ラウンド完走、上限・認証・秘�
   await once(proc.stdout,'data');
   const request=async(path,data,token)=>{const res=await fetch(`http://localhost:4184${path}`,{method:data?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:data?JSON.stringify(data):undefined});return {status:res.status,data:await res.json()};};
   for(const count of [2,8]){
-   const created=await request('/api/rooms',{name:'host <script>'});assert.equal(created.status,201);const host=created.data,players=[host],base=`/api/rooms/${host.code}`;
+   const created=await request('/api/rooms',{name:'host <script>'});assert.equal(created.status,201);assert.match(created.data.code,/^\d{4}$/);const host=created.data,players=[host],base=`/api/rooms/${host.code}`;
    for(let i=1;i<count;i++)players.push((await request(`${base}/join`,{name:`player${i}`})).data);
    if(count===8)assert.equal((await request(`${base}/join`,{name:'overflow'})).status,400);
    assert.equal((await request(base)).status,401);

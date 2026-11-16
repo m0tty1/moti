@@ -32,11 +32,11 @@ const server=http.createServer(async(req,res)=>{
       if(rooms.size>=500)fail('部屋が混み合っています。',503);
       const b=await body(req);if(typeof b.name!=='string'||!b.name.trim())fail('名前を入力してください。');
       const bots=Number(b.bots||0);if(!Number.isInteger(bots)||bots<0||bots>7)fail('CPU人数を確認してください。');
-      let code;do{code=Array.from({length:5},()=> 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[randomInt(31)]).join('');}while(rooms.has(code));
+      let code;do{code=String(randomInt(10000)).padStart(4,'0');}while(rooms.has(code));
       const room=newRoom(code,b.name,bots);room.touched=Date.now();rooms.set(code,room);
       return json(res,201,{code,token:room.players[0].token,id:room.host});
     }
-    const match=url.pathname.match(/^\/api\/rooms\/([A-Z2-9]{5})(?:\/(join|events|action))?$/);
+    const match=url.pathname.match(/^\/api\/rooms\/(\d{4})(?:\/(join|events|action))?$/);
     if(match){
       const room=rooms.get(match[1]);if(!room)fail('部屋が見つかりません。コードを確認してください。',404);room.touched=Date.now();
       if(match[2]==='join'&&req.method==='POST'){
@@ -74,7 +74,7 @@ const cleanup=setInterval(()=>{for(const [code,room]of rooms)if(!clients(room).s
 const wss=new WebSocketServer({noServer:true});
 server.on('upgrade',(req,socket,head)=>{
   try{
-    const url=new URL(req.url,'http://localhost'),match=url.pathname.match(/^\/api\/rooms\/([A-Z2-9]{5})\/socket$/);
+    const url=new URL(req.url,'http://localhost'),match=url.pathname.match(/^\/api\/rooms\/(\d{4})\/socket$/);
     if(!match)throw new Error('not found');
     const room=rooms.get(match[1]);if(!room)throw new Error('room not found');
     const p=authenticate(room,url.searchParams.get('token'));

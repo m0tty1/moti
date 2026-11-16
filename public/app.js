@@ -75,9 +75,9 @@ function renderResults(){
 }
 function showResults(){if(!state||!['roundOver','finished'].includes(state.phase))return;renderResults();if(!$('results').open)$('results').showModal();shownResultKey=`${state.code}:${state.round}:${state.phase}`;}
 document.querySelector('.brand').onclick=e=>{e.preventDefault();cancelOpening();clearTimeout(reconnectTimer);events?.close();events=null;state=null;session=null;sessionStorage.removeItem('vault-session');history.replaceState(null,'','/');$('home').hidden=false;$('game').hidden=true;document.body.dataset.screen='home';$('connection').textContent='2–8 PLAYERS';};
-const invited=new URL(location.href).searchParams.get('room');if(invited)$('code').value=invited.toUpperCase();$('name').value=localStorage.getItem('vault-name')||'';
+const invited=new URL(location.href).searchParams.get('room');if(/^\d{4}$/.test(invited||''))$('code').value=invited;$('code').oninput=()=>{$('code').value=$('code').value.replace(/\D/g,'').slice(0,4);};$('name').value=localStorage.getItem('vault-name')||'';
 async function enter(mode){const name=$('name').value.trim();if(!name){$('name').focus();throw new Error('名前を入力してください。');}localStorage.setItem('vault-name',name);
-  if(mode==='join'){const code=$('code').value.trim().toUpperCase();if(!/^[A-Z2-9]{5}$/.test(code))throw new Error('5文字の部屋コードを入力してください。');session=await api(`/api/rooms/${code}/join`,{name});}
+  if(mode==='join'){const code=$('code').value.trim();if(!/^\d{4}$/.test(code))throw new Error('数字4桁の部屋コードを入力してください。');session=await api(`/api/rooms/${code}/join`,{name});}
   else session=await api('/api/rooms',{name,bots:mode==='practice'?Number($('bots').value):0});
   sessionStorage.setItem('vault-session',JSON.stringify(session));connect();
 }
@@ -91,7 +91,8 @@ function connect(){
  events.onerror=()=>events?.close();initCanvas();
 }
 async function action(type,choice){return api(`/api/rooms/${session.code}/action`,{type,choice,turn:state?.turn,round:state?.round},true);}
-$('invite').onclick=()=>perform(async()=>{const url=`${location.origin}/?room=${session.code}`;try{await navigator.clipboard.writeText(url);toast('招待リンクをコピーしました。');}catch{prompt('このリンクを仲間に送ってください。',url);}});
+const copyInvite=async()=>{const url=`${location.origin}/?room=${session.code}`;try{await navigator.clipboard.writeText(url);toast(`部屋コード ${session.code} の招待リンクをコピーしました。`);}catch{prompt(`部屋コード ${session.code}：このリンクを仲間に送ってください。`,url);}};
+$('invite').onclick=()=>perform(copyInvite);$('room-code').onclick=()=>perform(copyInvite);
 function render(){
   if(!state)return;
   const s=state,me=s.players.find(p=>p.id===s.you),lobby=s.phase==='lobby',ended=['roundOver','finished'].includes(s.phase),done=s.phase==='finished';
@@ -101,7 +102,7 @@ function render(){
   field.dataset.idle=String(lobby);
   $('vault-route').innerHTML=VAULT_STAGES.map((v,i)=>`<div class="route-step ${i===stage.index?'current':i<stage.index?'cleared':'locked'}" ${i===stage.index?'aria-current="step"':''}><span>${i<stage.index?'✓':`0${i+1}`}</span><strong>${v.label}</strong><small>${i===stage.index?(v.total?`${stage.step} / ${v.total}`:`${stage.step}回目 / ∞`):(i<stage.index?'突破':`${v.start}回目〜`)}</small></div>`).join('');
   $('vault-zone').textContent=stage.zone;document.querySelector('.vault-stencil b').textContent=stage.label;
-  $('room-label').textContent=`部屋 ${s.code}`;$('round').innerHTML=lobby?'<span class="round-label">開始待ち</span>':`<span class="round-label">ラウンド</span><strong>${s.round}</strong><small>/5</small>`;
+  $('room-label').textContent=`部屋 ${s.code}`;$('room-code').querySelector('strong').textContent=s.code;$('room-code').setAttribute('aria-label',`部屋コード ${s.code}。押すと招待リンクをコピー`);$('round').innerHTML=lobby?'<span class="round-label">開始待ち</span>':`<span class="round-label">ラウンド</span><strong>${s.round}</strong><small>/5</small>`;
   $('banked-gold').textContent=me.score;
   $('hud-name').textContent=me.name;
   $('depth').textContent=lobby?'小型金庫から探索開始':`${stage.label} / 探索 ${String(s.turn).padStart(2,'0')} 回目`;

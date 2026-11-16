@@ -1,6 +1,6 @@
 // UI QA partner: stays for one draw, then escapes. Host remains controlled in UI.
 const code=process.argv[2];
-if(!/^[A-Z2-9]{5}$/.test(code||''))throw new Error('Pass a lobby room code.');
+if(!/^\d{4}$/.test(code||''))throw new Error('Pass a 4-digit lobby room code.');
 const base=`http://localhost:4173/api/rooms/${code}`;
 const joined=await fetch(`${base}/join`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'検証パートナー'})});
 if(!joined.ok)throw new Error('Could not join the QA lobby.');

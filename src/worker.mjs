@@ -1,13 +1,12 @@
 import {newRoom,player,startRound,resolve,advance,view,riskProfile} from '../engine.mjs';
 
-const CODE_CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});
 const error=(message,status=400)=>json({error:message},status);
 async function readBody(request){
  const text=await request.text();if(text.length>4096)throw Object.assign(new Error('入力が長すぎます。'),{status:413});
  try{return JSON.parse(text||'{}');}catch{throw Object.assign(new Error('入力形式を確認してください。'),{status:400});}
 }
-function roomCode(){const bytes=new Uint8Array(5);crypto.getRandomValues(bytes);return [...bytes].map(n=>CODE_CHARS[n%CODE_CHARS.length]).join('');}
+function roomCode(){const value=new Uint32Array(1),limit=0x100000000-(0x100000000%10000);do crypto.getRandomValues(value);while(value[0]>=limit);return String(value[0]%10000).padStart(4,'0');}
 
 export default {
  async fetch(request,env){
@@ -24,7 +23,7 @@ export default {
     }
     return error('部屋を作成できません。もう一度お試しください。',503);
    }
-   const match=url.pathname.match(/^\/api\/rooms\/([A-Z2-9]{5})(?:\/(join|socket|action))?$/);
+   const match=url.pathname.match(/^\/api\/rooms\/(\d{4})(?:\/(join|socket|action))?$/);
    if(match){const stub=env.ROOMS.get(env.ROOMS.idFromName(match[1]));return stub.fetch(request);}
    if(url.pathname.startsWith('/api/'))return error('操作が見つかりません。',404);
    return env.ASSETS.fetch(request);
