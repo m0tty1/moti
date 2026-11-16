@@ -1,5 +1,7 @@
 # 金庫ブレイク / VAULT BREAK
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/m0tty1/moti)
+
 Game StudioのPhaser構成で作った、2〜8人の同時選択ブラウザカードゲーム。Node.js 22以上が必要です。追加のパッケージインストールは不要です。
 
 1. このフォルダーで `node server.mjs` を実行。
