@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {rareEffectPlan,createRareEffect} from './public/rare-effect.js';
 const rare={type:'treasure',id:'mona-lisa',item:'painting',rarity:'rare',name:'モナ・リザ',value:80};
 const legendary={type:'treasure',id:'blue-diamond',item:'diamond',rarity:'legendary',name:'ブルーダイヤ',value:200};
+const kidsRare={type:'treasure',id:'310-wedding-ring',item:'ring',rarity:'kids-rare',name:'310の結婚指輪',value:198};
 const dpr={...legendary,rarity:'dpr'};
 function fixture(){
  const nodes=new Map(),root={hidden:true,dataset:{},style:{setProperty(){}},querySelector(selector){if(!nodes.has(selector))nodes.set(selector,{});return nodes.get(selector);}};
@@ -12,9 +13,9 @@ function fixture(){
  const advance=ms=>{const until=now+ms;while(true){const due=[...jobs.values()].filter(j=>j.at<=until).sort((a,b)=>a.at-b.at)[0];if(!due)break;now=due.at;jobs.delete(due.id);due.fn();}now=until;};
  return {root,nodes,setTimer,clearTimer,advance,all};
 }
-test('通常・レア・レジェンダリーは暗転せず、DPRだけ演出する',()=>{
+test('通常・レア・レジェンダリーは暗転せず、Kids RareとDPRだけ演出する',()=>{
  assert.equal(rareEffectPlan({...rare,rarity:'common'}),null);assert.equal(rareEffectPlan({type:'alarm',rarity:'rare'}),null);
- assert.equal(rareEffectPlan(rare),null);assert.equal(rareEffectPlan(legendary),null);assert.equal(rareEffectPlan(dpr).mode,'fullscreen');
+ assert.equal(rareEffectPlan(rare),null);assert.equal(rareEffectPlan(legendary),null);assert.equal(rareEffectPlan(kidsRare).mode,'fullscreen');assert.equal(rareEffectPlan(dpr).mode,'fullscreen');
 });
 test('動きを減らす設定・他の画面・残り時間不足なら操作を妨げる暗転を省略',()=>{
  for(const options of [{reducedMotion:true},{obscured:true},{remainingMs:1000}])assert.equal(rareEffectPlan(dpr,options).mode,'inline');

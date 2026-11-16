@@ -29,7 +29,7 @@ test('HTTP実対戦：2人・8人の順番制で5ラウンド完走、上限・�
    }
    assert.equal((await request(`${base}/action`,{type:'start'},host.token)).status,200);const again=(await request(base,null,host.token)).data;assert.equal(again.round,1);assert.ok(again.players.every(p=>p.score===0));
   }
-  const page=await fetch('http://localhost:4184/');assert.equal(page.status,200);assert.match(await page.text(),/ギャンブル金庫タイム！/);
+  const page=await fetch('http://localhost:4184/');assert.equal(page.status,200);assert.match(await page.text(),/ギャンブル金庫タイム/);
   for(const path of ['/app.js','/style.css','/vault-scene.css','/launcher.css','/loot-catalog.js','/rare-effect.js','/rare-effect.css','/vendor/phaser.min.js','/assets/store.png','/assets/bank.png','/assets/grand-bank.png','/assets/heist-music.mp3'])assert.equal((await fetch(`http://localhost:4184${path}`)).status,200);
   const sound=await fetch('http://localhost:4184/assets/puchun.mp3');assert.equal(sound.status,200);assert.equal(sound.headers.get('content-type'),'audio/mpeg');assert.ok((await sound.arrayBuffer()).byteLength>0);
  }finally{proc.kill();}

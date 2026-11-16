@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import {LOOT_CATALOG} from './public/loot-catalog.js';
 import {catalogSections,rankPlayers,outsideBounds} from './public/view-model.js';
 
-test('お宝は小型→中型→大型に並び、共有品を重複させず全60種類を掲載',()=>{
+test('お宝は小型→中型→大型に並び、共有品を重複させず全70種類を掲載',()=>{
  const sections=catalogSections(LOOT_CATALOG);assert.deepEqual(sections.map(s=>s.key),['small','medium','large']);
- const all=sections.flatMap(s=>s.items);assert.equal(all.length,60);assert.equal(new Set(all.map(p=>p.id)).size,60);
+ const all=sections.flatMap(s=>s.items);assert.equal(all.length,70);assert.equal(new Set(all.map(p=>p.id)).size,70);
  for(const section of sections){assert.ok(section.items.every(p=>p.vaults[0]===section.key));for(let i=1;i<section.items.length;i++)assert.ok(section.items[i].value>=section.items[i-1].value);}
- assert.equal(catalogSections(LOOT_CATALOG,'common').flatMap(s=>s.items).length,36);assert.equal(catalogSections(LOOT_CATALOG,'rare').flatMap(s=>s.items).length,24);
+ assert.equal(catalogSections(LOOT_CATALOG,'common').flatMap(s=>s.items).length,36);assert.equal(catalogSections(LOOT_CATALOG,'rare').flatMap(s=>s.items).length,23);assert.equal(catalogSections(LOOT_CATALOG,'kids-rare').flatMap(s=>s.items).length,10);
 });
 test('DPRフィルターは超低確率の対象だけを表示',()=>{const sections=catalogSections(LOOT_CATALOG,'dpr');assert.equal(sections.flatMap(section=>section.items).length,1);assert.equal(sections[0].items[0].id,'blue-diamond');});
 test('合計Gで順位を付け、同点は同順位、元の参加者配列は変更しない',()=>{

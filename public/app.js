@@ -30,14 +30,14 @@ function unlockBgm(){if(bgmUnlocked)return;bgmUnlocked=true;bgm.volume=0;bgm.pla
 function ratchet(duration=1600){if(!sound)return;try{audio||=new AudioContext();audio.resume();const t=audio.currentTime;for(let i=0;i<16;i++){const o=audio.createOscillator(),g=audio.createGain(),at=t+i*.06*duration/1600;o.type='triangle';o.frequency.value=700+(i%3)*170;g.gain.setValueAtTime(.027*masterVolume,at);g.gain.exponentialRampToValueAtTime(.0001,at+.025);o.connect(g);g.connect(audio.destination);o.start(at);o.stop(at+.03);}}catch{}}
 function playRareSound(){const clip=$('rare-sfx');if(!sound)return()=>{};bgm.volume=.035*masterVolume;clip.pause();clip.currentTime=0;clip.volume=.4*masterVolume;clip.play().catch(()=>{});return()=>{clip.pause();clip.currentTime=0;bgm.volume=BGM_VOLUME*masterVolume;syncBgm();};}
 function cancelOpening(){clearTimeout(openingTimer);clearTimeout(rareHighlightTimer);rareFX.cancel();previewing=false;opening=false;document.querySelector('.playfield').classList.remove('opening','rare-arrival','legendary-arrival');$('game').classList.remove('is-opening');}
-function openVault(card,key,dpr){
+function openVault(card,key,puchun){
   cancelOpening();const field=document.querySelector('.playfield');$('card').classList.remove('flip');
   const spectating=!state.players.find(p=>p.id===state.you)?.active||state.currentPlayerId!==state.you;
   const remaining=state.deadline?Math.max(0,state.deadline-Date.now()):Infinity;
-  const duration=reduced?0:spectating?(dpr?200:650):Math.min(1600,Math.max(0,remaining-4000));
+  const duration=reduced?0:spectating?(puchun?200:650):Math.min(1600,Math.max(0,remaining-4000));
   const finish=()=>{
     if(!state||lastCard!==key)return;opening=false;field.classList.remove('opening');$('game').classList.remove('is-opening');$('card').classList.add('flip');
-    if(dpr){field.classList.add('rare-arrival');rareHighlightTimer=setTimeout(()=>field.classList.remove('rare-arrival','legendary-arrival'),2200);}else{beep(card.type==='alarm');fx?.burst(card.type==='alarm',false);}
+    if(puchun){field.classList.add('rare-arrival');rareHighlightTimer=setTimeout(()=>field.classList.remove('rare-arrival','legendary-arrival'),2200);}else{beep(card.type==='alarm');fx?.burst(card.type==='alarm',false);}
     queueMicrotask(()=>{if(state&&lastCard===key)render();});
   };
   const reveal=()=>{
@@ -59,16 +59,16 @@ document.addEventListener('pointerdown',event=>{const control=event.target.close
 for(const id of ['volume','effects-volume'])$(id).addEventListener('input',event=>{unlockBgm();setMasterVolume(event.target.value);});
 $('help').onclick=()=>$('rules').showModal();$('close-help').onclick=()=>$('rules').close();
 $('rules').querySelector('ol').innerHTML='<li>Aさん→Bさんの順に、1人ずつ金庫を探索。出たお宝は手番の人の未確保Gに加算。</li><li>手番の人は20秒以内に「さらに漁る」か「脱出」を選択。選択後は次の人へ。</li><li>脱出すると未確保Gとボーナス50 Gを確保。</li><li>警報は全員共通。合計3個で残った全員の未確保Gがゼロ。</li><li>5ラウンドの合計獲得Gで勝負。</li>';
-$('rules').querySelector(':scope>p').textContent='通報率は1%から開始。小型は1回ごとに＋2ポイント、中型は＋3ポイント、大型は＋1ポイント（上限70%）。DPRは大型金庫のみ0.1%。ぷちゅん暗転はDPRのときだけ発生します。時間切れは自動脱出。';
-const dprOption=document.createElement('option');dprOption.value='dpr';dprOption.textContent='DPR / 1種類';$('catalog-filter').append(dprOption);$('catalog-filter').querySelector('[value="rare"]').textContent='レア以上 / 24種類';
-function renderCatalog(){const sections=catalogSections(LOOT_CATALOG,$('catalog-filter').value);$('catalog-grid').innerHTML=sections.map(section=>`<h3 class="catalog-section-heading">${section.label}<span>${section.items.length}種類</span></h3>${section.items.map(p=>`<article class="catalog-card ${p.rarity}"><div class="catalog-art" aria-hidden="true">${artFor(p)}</div><small>${p.rarity==='common'?'TREASURE':p.rarity==='dpr'?'DPR':p.rarity==='legendary'?'LEGENDARY':'RARE'}</small><h3>${esc(p.name)}</h3><strong>${p.value}<span> G</span></strong><p>${p.vaults.map(key=>VAULT_STAGES.find(s=>s.key===key).label).join(' / ')}</p></article>`).join('')}`).join('');}
+$('rules').querySelector(':scope>p').textContent='通報率は1%から開始。小型は1回ごとに＋2ポイント、中型は＋3ポイント、大型は＋1ポイント（上限70%）。大型金庫ではKids Rareが0.5%、DPRが0.1%。ぷちゅん暗転はKids RareとDPRで発生します。時間切れは自動脱出。';
+const kidsOption=document.createElement('option');kidsOption.value='kids-rare';kidsOption.textContent='Kids Rare / 10種類';$('catalog-filter').append(kidsOption);const dprOption=document.createElement('option');dprOption.value='dpr';dprOption.textContent='DPR / 1種類';$('catalog-filter').append(dprOption);$('catalog').querySelector('.eyebrow').textContent='THE LOOT COLLECTION / 70 ITEMS';$('catalog-filter').querySelector('[value="all"]').textContent='すべて / 70種類';$('catalog-filter').querySelector('[value="rare"]').textContent='レア・レジェンダリー / 23種類';
+function renderCatalog(){const sections=catalogSections(LOOT_CATALOG,$('catalog-filter').value);$('catalog-grid').innerHTML=sections.map(section=>`<h3 class="catalog-section-heading">${section.label}<span>${section.items.length}種類</span></h3>${section.items.map(p=>`<article class="catalog-card ${p.rarity}"><div class="catalog-art" aria-hidden="true">${artFor(p)}</div><small>${p.rarity==='common'?'TREASURE':p.rarity==='dpr'?'DPR':p.rarity==='kids-rare'?'KIDS RARE':p.rarity==='legendary'?'LEGENDARY':'RARE'}</small><h3>${esc(p.name)}</h3><strong>${p.value}<span> G</span></strong><p>${p.vaults.map(key=>VAULT_STAGES.find(s=>s.key===key).label).join(' / ')}</p></article>`).join('')}`).join('');}
 $('catalog-open').onclick=()=>{renderCatalog();$('catalog').showModal();};$('close-catalog').onclick=()=>$('catalog').close();$('catalog-filter').onchange=renderCatalog;
 $('home-catalog').onclick=()=>$('catalog-open').click();$('home-help').onclick=()=>$('help').click();
 $('home-effects').onclick=()=>$('effects').showModal();$('close-effects').onclick=()=>$('effects').close();
 const effectCard=LOOT_CATALOG.find(p=>p.rarity==='dpr');
 $('effects').querySelector(':scope>p').textContent='ゲーム中に発生する特殊演出を紹介します。';
 $('effects').querySelector('.effects-toolbar>span').textContent='「プチュン」音声付きで試せます';
-$('effects').querySelector('.effect-previews').innerHTML=`<article class="effect-preview effect-intro"><div class="effect-symbol power-cut-symbol" aria-hidden="true"><i></i></div><span>DPR EXCLUSIVE EFFECT</span><h3>ぷちゅん暗転</h3><p>超低確率のDPRが出たときだけ、画面が一瞬消えてお宝が現れます。レアとレジェンダリーでは発生しません。</p><button id="preview-puchun" class="primary">演出を試す →</button></article>`;
+$('effects').querySelector('.effect-previews').innerHTML=`<article class="effect-preview effect-intro"><div class="effect-symbol power-cut-symbol" aria-hidden="true"><i></i></div><span>KIDS RARE / DPR EFFECT</span><h3>ぷちゅん暗転</h3><p>Kids RareまたはDPRが出たとき、画面が一瞬消えてお宝が現れます。レアとレジェンダリーでは発生しません。</p><button id="preview-puchun" class="primary">演出を試す →</button></article>`;
 $('preview-puchun').onclick=()=>{const card={type:'treasure',...effectCard};previewing=true;$('effects').close();rareFX.play(card,rareEffectPlan(card,{reducedMotion:reduced}),finishPreview);};
 function finishPreview(){previewing=false;if(document.body.dataset.screen==='home'&&!document.querySelector('dialog[open]'))$('effects').showModal();}
 document.addEventListener('keydown',e=>{if(previewing&&e.key==='Escape'){e.preventDefault();rareFX.cancel();finishPreview();}});
@@ -130,14 +130,14 @@ function render(){
   $('event').textContent=s.event.replaceAll(' pt',' G');$('player-count').textContent=`${s.players.length}人 / 8人`;
   document.querySelector('.crew-panel').classList.toggle('crowded',s.players.length>4);
   const card=s.history.at(-1),key=`${s.code}:${s.round}:${s.history.length}:${s.phase==='lobby'}`;
-  const rare=card?.type==='treasure'&&card.rarity!=='common',dpr=card?.rarity==='dpr';
-  $('card-caption').textContent=lobby?'金庫は、まだ開いていない。':s.alarm>=3?'侵入を検知。金庫を封鎖。':dpr?'DPR発見。超低確率のお宝！':rare?'厳重保管エリアで、レアなお宝を発見！':card?.type==='alarm'?'センサーに見つかった！':'金庫の奥から、お宝を発見。';
+  const rare=card?.type==='treasure'&&card.rarity!=='common',dpr=card?.rarity==='dpr',kidsRare=card?.rarity==='kids-rare',puchun=dpr||kidsRare;
+  $('card-caption').textContent=lobby?'金庫は、まだ開いていない。':s.alarm>=3?'侵入を検知。金庫を封鎖。':dpr?'DPR発見。超低確率のお宝！':kidsRare?'Kids Rare発見。特別なお宝！':rare?'厳重保管エリアで、レアなお宝を発見！':card?.type==='alarm'?'センサーに見つかった！':'金庫の奥から、お宝を発見。';
   $('card-value').textContent=card?`+${card.type==='alarm'?card.count:card.value}`:'?';$('card-kind').textContent=card?.type==='alarm'?'警報が増えた':card?'GOLD':'何が眠っている？';
   $('loot-name').textContent=card?.name||'未開封の金庫';$('loot-art').innerHTML=artFor(card);
-  $('rarity').textContent=card?.type==='alarm'?'SECURITY ALERT':dpr?'DPR DROP':card?.rarity==='legendary'?'LEGENDARY LOOT':rare?'RARE TREASURE':card?'TREASURE FOUND':'SEALED';
+  $('rarity').textContent=card?.type==='alarm'?'SECURITY ALERT':dpr?'DPR DROP':kidsRare?'KIDS RARE':card?.rarity==='legendary'?'LEGENDARY LOOT':rare?'RARE TREASURE':card?'TREASURE FOUND':'SEALED';
   $('card').classList.toggle('alarm-card',card?.type==='alarm');
-  $('card').classList.toggle('rare-card',card?.rarity==='rare');$('card').classList.toggle('legendary-card',card?.rarity==='legendary');$('card').classList.toggle('dpr-card',dpr);
-  if(key!==lastCard){lastCard=key;if(card)openVault(card,key,dpr);else cancelOpening();}
+  $('card').classList.toggle('rare-card',card?.rarity==='rare');$('card').classList.toggle('legendary-card',card?.rarity==='legendary');$('card').classList.toggle('kids-rare-card',kidsRare);$('card').classList.toggle('dpr-card',dpr);
+  if(key!==lastCard){lastCard=key;if(card)openVault(card,key,puchun);else cancelOpening();}
   $('lock-status').textContent=opening?'じりじり… ダイヤルを合わせている':lobby?'ダイヤルロック / 待機中':'カチッ。金庫を開けた。';
   const shownAlarm=opening&&card?.type==='alarm'?Math.max(0,s.alarm-card.count):s.alarm;
   $('alarm').innerHTML=[0,1,2].map(i=>`<div class="alarm-cell ${i<shownAlarm?'on':''}"><div class="alarm-lamp"></div><span>${i+1}</span></div>`).join('');
@@ -146,13 +146,13 @@ function render(){
   $('security-note').textContent=shownAlarm>=3?'ロックダウン！ 未確保のお宝を失った':shownAlarm===2?'あと1個で封鎖。逃げるなら今。':'一度に1〜2個発生。合計3個で封鎖。';
   if(opening){$('event').textContent='ダイヤルを合わせている…';$('card-caption').textContent='じりじり… ダイヤルを回して解錠中';}
   $('loot-count').textContent=`${s.history.filter(c=>c.type==='treasure').length} ITEMS`;
-  $('history').innerHTML=s.history.length?[...s.history].reverse().map(c=>`<div class="loot-row ${c.type==='alarm'?'danger':c.rarity!=='common'?'rare':''}"><div class="loot-thumb" aria-hidden="true">${artFor(c)}</div><div><strong>${esc(c.name)}</strong><small>${esc(c.ownerName||'')}・探索 ${String(c.depth).padStart(2,'0')} ${c.rarity==='dpr'?' / DPR':c.rarity==='rare'?' / RARE':c.rarity==='legendary'?' / LEGENDARY':''}</small></div><b>+${c.type==='alarm'?c.count:c.value}${c.type==='alarm'?' 個':' G'}</b></div>`).join(''):'<p class="empty-loot">金庫を漁って、<br>最初のお宝を見つけよう。</p>';
+  $('history').innerHTML=s.history.length?[...s.history].reverse().map(c=>`<div class="loot-row ${c.type==='alarm'?'danger':c.rarity!=='common'?'rare':''}"><div class="loot-thumb" aria-hidden="true">${artFor(c)}</div><div><strong>${esc(c.name)}</strong><small>${esc(c.ownerName||'')}・探索 ${String(c.depth).padStart(2,'0')} ${c.rarity==='dpr'?' / DPR':c.rarity==='kids-rare'?' / KIDS RARE':c.rarity==='rare'?' / RARE':c.rarity==='legendary'?' / LEGENDARY':''}</small></div><b>+${c.type==='alarm'?c.count:c.value}${c.type==='alarm'?' 個':' G'}</b></div>`).join(''):'<p class="empty-loot">金庫を漁って、<br>最初のお宝を見つけよう。</p>';
   $('bonus-note').textContent=lost?'このラウンドは0 G。確保済みの合計点はそのまま。':me.active?'脱出すると、さらに +50 G':'このお宝はもう失わない。';
   const next=s.next;
   $('risk-alarm').innerHTML=!lobby&&!ended?`${next.alarmChance}<small>%</small>`:'—';
   $('risk-bust').innerHTML=!lobby&&!ended?`${Number(next.bustChance.toFixed(1))}<small>%</small>`:'—';
   const rareMin=next?.rareMinReward??65,rareMax=next?.rareMaxReward??70;
-  $('risk-reward').innerHTML=!lobby&&!ended?`${next.minReward}–${next.maxReward}<small>G</small><span class="rare-hint">レア ${rareMin}〜${rareMax} G / ${next.rareChance}%${next.dprChance?` ・ DPR ${next.dprChance}%`:''}</span>`:'<small>探索で上昇</small>';
+  $('risk-reward').innerHTML=!lobby&&!ended?`${next.minReward}–${next.maxReward}<small>G</small><span class="rare-hint">レア ${rareMin}〜${rareMax} G / ${next.rareChance}%${next.kidsRareChance?` ・ Kids ${next.kidsRareChance}%`:''}${next.dprChance?` ・ DPR ${next.dprChance}%`:''}</span>`:'<small>探索で上昇</small>';
   const symbols=['♠','♣','♦','♥','✦','☾','✧','♢'];
   $('players').innerHTML=s.players.map((p,i)=>{let status=p.bot?'CPU / 待機中':'参加済み',kind='';if(!lobby){if(!p.active){status=p.gain?`脱出 +${p.gain} G`:`封鎖 / -${p.lost} G`;kind=p.gain?'safe':'failed';}else if(p.id===s.currentPlayerId){status=p.id===s.you?`あなたのターン / 未確保 ${p.pot} G`:`探索中 / 未確保 ${p.pot} G`;kind='ready';}else{status=`${s.currentPlayerName}のターンを待機 / 未確保 ${p.pot} G`;kind='thinking';}}return `<div class="crew-player ${p.id===s.you?'self':''} ${p.id===s.currentPlayerId?'turn':''}"><div class="avatar">${symbols[i]}</div><div class="player-detail"><div class="player-name">${esc(p.name)}${p.id===s.you?'<span class="you">自分</span>':''}${p.bot?'<span class="you bot-tag">CPU</span>':''}</div><div class="player-status ${kind}">${status}</div></div><div class="player-score"><strong>${p.score}</strong><small>G</small></div></div>`;}).join('');
   let actions='';

@@ -64,6 +64,18 @@ const rare=[
  ['ancient-key','古王国の黄金鍵','key',135,'#f1c86c',5],
  ['imperial-egg','皇帝の宝飾卵','egg',155,'#a4c6ec',6]
 ];
+const kidsRare=[
+ ['hikage-broken-screw','ひかげの壊れた頭のネジ','screw',191,'#c7d4df',16],
+ ['kanade-wisdom-tooth','かなでの親知らず','tooth',192,'#f2e9d8',16],
+ ['yoru-mac-double-cheeseburger','夜ノマックの倍倍チーズバーガー','burger',193,'#f0a647',16],
+ ['koikoi-golden-glasses','恋恋のゴールデンメガネ','glasses',194,'#f5ca55',16],
+ ['kaoru-secret-call-tape','薫の秘蔵エロイプ録音テープ','tape',195,'#ce8a5a',16],
+ ['yukiya-board-game','雪哉の大切なボードゲーム','boardgame',196,'#86b5da',16],
+ ['yawara-farm-crystal','やわらの7年ファームの結晶','gem',197,'#86edc5',16],
+ ['310-wedding-ring','310の結婚指輪','ring',198,'#f5d9a0',16],
+ ['poppingami-golden-pachinko-ball','ぽっぴんがみの黄金のパチンコ玉','coin',199,'#ffd54e',16],
+ ['ryo-briefs','涼ちゃんのブリーフ','briefs',199,'#e8f2ff',16]
+];
 const smallCommon=new Set(['loose-coins','old-coins','banknotes','coin-rolls','cash-bundle','cash-case','silver-ring','gold-ring','signet-ring','silver-necklace','silver-bar','gold-bar','silver-pen']);
 const sharedWithMedium=new Set(['cash-case','gold-bar']);
 const smallRare=new Set(['rare-stamp','commemorative-coin']);
@@ -77,11 +89,12 @@ function assignVaults(entry){
 }
 export const LOOT_CATALOG=Object.freeze([
  ...common.map(([id,name,item,value,tint])=>assignVaults({id,name,item,value,tint,rarity:'common',minDepth:value<=15?1:value<=30?3:value<=45?6:9})),
- ...rare.map(([id,name,item,value,tint,minDepth])=>assignVaults({id,name,item,value,tint,minDepth,rarity:id==='blue-diamond'?'dpr':value>=160?'legendary':'rare'}))
+ ...rare.map(([id,name,item,value,tint,minDepth])=>assignVaults({id,name,item,value,tint,minDepth,rarity:id==='blue-diamond'?'dpr':value>=160?'legendary':'rare'})),
+ ...kidsRare.map(([id,name,item,value,tint,minDepth])=>assignVaults({id,name,item,value,tint,minDepth,rarity:'kids-rare'}))
 ]);
 export function lootPool(depth,tier='common'){
  const stage=vaultStage(depth);
- return LOOT_CATALOG.filter(p=>p.minDepth<=depth&&p.vaults.includes(stage.key)&&(tier===true?(p.rarity!=='common'&&p.rarity!=='dpr'):tier==='rare'?(p.rarity==='rare'||p.rarity==='legendary'):p.rarity===tier));
+ return LOOT_CATALOG.filter(p=>p.minDepth<=depth&&p.vaults.includes(stage.key)&&(tier===true?(p.rarity!=='common'&&p.rarity!=='kids-rare'&&p.rarity!=='dpr'):tier==='rare'?(p.rarity==='rare'||p.rarity==='legendary'):p.rarity===tier));
 }
 export function lootRange(depth){
  const common=lootPool(depth),rare=lootPool(depth,'rare');

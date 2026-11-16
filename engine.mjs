@@ -18,9 +18,10 @@ export function newRoom(code, name, bots=0) {
 export function riskProfile(depth, alarm=0) {
   const alarmChance=alarmChanceAtDepth(depth);
   const rareChance=Math.min(30,2+(depth-1)*3);
+  const kidsRareChance=depth>=16 ? .5 : 0;
   const dprChance=depth>=16 ? .1 : 0;
   const fatalWeight=alarm>=2?100:alarm===1?35:0;
-  return {depth,alarmChance,rareChance,dprChance,...lootRange(depth),bustChance:Math.round(alarmChance*fatalWeight)/100};
+  return {depth,alarmChance,rareChance,kidsRareChance,dprChance,...lootRange(depth),bustChance:Math.round(alarmChance*fatalWeight)/100};
 }
 export function rollLoot(depth, rng=randomInt) {
   const risk=riskProfile(depth);
@@ -30,6 +31,8 @@ export function rollLoot(depth, rng=randomInt) {
   }
   const dpr=rng(10000)<risk.dprChance*100;
   if(dpr){const pool=lootPool(depth,'dpr');return {type:'treasure',...pool[rng(pool.length)],depth};}
+  const kidsRare=rng(10000)<risk.kidsRareChance*100;
+  if(kidsRare){const pool=lootPool(depth,'kids-rare');return {type:'treasure',...pool[rng(pool.length)],depth};}
   const rare=rng(10000)<risk.rareChance*100;
   const pool=lootPool(depth,rare?'rare':'common');
   return {type:'treasure',...pool[rng(pool.length)],depth};
@@ -52,7 +55,7 @@ export function draw(room, rng=randomInt) {
   if(room.alarm>=3){room.players.filter(p=>p.active).forEach(p=>{p.lost=p.pot;p.pot=0;p.active=false;p.choice=null;});finishRound(room,`警報 +${card.count}！ 共通警報が3個に達し、残った全員の未確保お宝を失った。`);return;}
   room.phase='choosing';room.deadline=Date.now()+20000;
   room.players.forEach(p=>p.choice=null);
-  room.event=card.type==='alarm'?`${actor.name}が警報 +${card.count}！ 共通警報 ${room.alarm}/3。`:`${actor.name}が${card.rarity==='dpr'?'DPR発見！ ':card.rarity!=='common'?'レア発見！ ':''}${card.name} +${card.value} G`;
+  room.event=card.type==='alarm'?`${actor.name}が警報 +${card.count}！ 共通警報 ${room.alarm}/3。`:`${actor.name}が${card.rarity==='dpr'?'DPR発見！ ':card.rarity==='kids-rare'?'Kids Rare発見！ ':card.rarity!=='common'?'レア発見！ ':''}${card.name} +${card.value} G`;
 }
 export function finishRound(room,message) {
   room.phase=room.round>=5?'finished':'roundOver'; room.deadline=null; room.event=message;

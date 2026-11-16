@@ -1,5 +1,7 @@
 /* One power-cut, a quiet blackout, then a single reward reveal. No strobing. */
 .rare-effect{position:fixed;inset:0;z-index:70;display:grid;place-items:center;overflow:hidden;background:#000;color:#f3d48b;pointer-events:auto;isolation:isolate;--rare-glow:#e9bc61;--rare-rgb:233,188,97}
+.rare-effect[data-tier=kids-rare]{--rare-glow:#ff9fcf;--rare-rgb:255,112,186}
+.rare-effect[data-tier=dpr]{--rare-glow:#ef79ff;--rare-rgb:239,121,255}
 .rare-effect-line{position:absolute;left:14%;right:14%;top:50%;height:2px;background:#fffbeb;box-shadow:0 0 12px #fff9d6,0 0 40px #fff9d6;transform-origin:center;animation:rare-power-cut var(--rare-cut,140ms) ease-in both}
 .rare-effect[data-phase=black] .rare-effect-line,.rare-effect[data-phase=reveal] .rare-effect-line,.rare-effect[data-phase=fade] .rare-effect-line{display:none}
 .rare-effect-aura{position:absolute;width:min(100vw,800px);height:min(100vw,800px);border-radius:50%;background:radial-gradient(circle,rgba(var(--rare-rgb),.2),rgba(var(--rare-rgb),.07) 35%,transparent 65%);opacity:0;transform:scale(.55);transition:opacity .45s ease-out,transform 1s cubic-bezier(.15,.8,.2,1)}

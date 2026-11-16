@@ -85,4 +85,4 @@ server.on('upgrade',(req,socket,head)=>{
     });
   }catch{socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');socket.destroy();}
 });
-server.listen(port,'0.0.0.0',()=>console.log(`ギャンブル金庫タイム！ → http://localhost:${port}`));
+server.listen(port,'0.0.0.0',()=>console.log(`ギャンブル金庫タイム → http://localhost:${port}`));
