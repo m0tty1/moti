@@ -3,12 +3,14 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join, extname, resolve as pathResolve } from 'node:path';
 import { randomInt } from 'node:crypto';
+import { WebSocketServer } from 'ws';
 import { newRoom, player, startRound, resolve, advance, view, riskProfile } from './engine.mjs';
 
 const rooms=new Map(), streams=new Map(), root=fileURLToPath(new URL('./public/',import.meta.url));
 const port=Number(process.env.PORT||4173);
 const clients=room=>streams.get(room.code)||new Set();
-function emit(room){room.revision++;for(const s of clients(room))s.res.write(`data: ${JSON.stringify(view(room,s.id))}\n\n`);}
+function send(stream,data){if(typeof stream.res.send==='function')stream.res.send(data);else stream.res.write(`data: ${data}\n\n`);}
+function emit(room){room.revision++;for(const s of clients(room))send(s,JSON.stringify(view(room,s.id)));}
 function schedule(room){
   clearTimeout(room.clock);
   if(room.phase!=='choosing')return;
@@ -69,4 +71,17 @@ const server=http.createServer(async(req,res)=>{
   }catch(e){if(!res.headersSent)json(res,e.status||500,{error:e.status?e.message:'接続エラー。もう一度お試しください。'});else res.end();}
 });
 const cleanup=setInterval(()=>{for(const [code,room]of rooms)if(!clients(room).size&&Date.now()-room.touched>6*3600000){clearTimeout(room.clock);rooms.delete(code);streams.delete(code);}},60000);cleanup.unref();
+const wss=new WebSocketServer({noServer:true});
+server.on('upgrade',(req,socket,head)=>{
+  try{
+    const url=new URL(req.url,'http://localhost'),match=url.pathname.match(/^\/api\/rooms\/([A-Z2-9]{5})\/socket$/);
+    if(!match)throw new Error('not found');
+    const room=rooms.get(match[1]);if(!room)throw new Error('room not found');
+    const p=authenticate(room,url.searchParams.get('token'));
+    wss.handleUpgrade(req,socket,head,ws=>{
+      if(!streams.has(room.code))streams.set(room.code,new Set());const stream={res:ws,id:p.id};streams.get(room.code).add(stream);
+      ws.send(JSON.stringify(view(room,p.id)));ws.on('close',()=>streams.get(room.code)?.delete(stream));
+    });
+  }catch{socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');socket.destroy();}
+});
 server.listen(port,'0.0.0.0',()=>console.log(`VAULT BREAK → http://localhost:${port}`));

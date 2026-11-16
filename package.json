@@ -1,1 +1,1 @@
-{"name":"vault-break","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node --test"},"engines":{"node":">=22"}}
+{"name":"vault-break","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node --test","cf:dev":"wrangler dev","cf:deploy":"wrangler deploy"},"dependencies":{"ws":"^8.18.3"},"devDependencies":{"wrangler":"^4.46.0"},"engines":{"node":">=22"}}

@@ -1,7 +1,5 @@
 # 金庫ブレイク / VAULT BREAK
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/m0tty1/moti)
-
 Game StudioのPhaser構成で作った、2〜8人の同時選択ブラウザカードゲーム。Node.js 22以上が必要です。追加のパッケージインストールは不要です。
 
 1. このフォルダーで `node server.mjs` を実行。
@@ -43,8 +41,14 @@ Game StudioのPhaser構成で作った、2〜8人の同時選択ブラウザカ�
 
 ## Web公開
 
-Node.jsを実行できるWebサービス向けです。`PORT`環境変数と`0.0.0.0`待受に対応し、`/healthz`で稼働確認できます。Renderではリポジトリ直下の `render.yaml` を読み込むと、Web Serviceとして起動します。公開URLを共有し、1人が部屋を作成して表示された5文字のコードを送ると、別端末から最大8人まで参加できます。
+本番環境はCloudflare Workers＋Durable Objectsです。1部屋を1つのDurable Objectが担当し、対戦状態をSQLiteストレージへ保存します。参加者の同期にはHibernation対応WebSocket、20秒の制限時間とカード公開にはDurable Object Alarmsを使います。静的画像・音声・UIはWorkers Static Assetsから配信します。
 
-部屋と対戦状態はサーバーのメモリに保存します。再起動や再デプロイで進行中の部屋は消えます。無料プランは15分間アクセスがないと停止し、次回アクセス時の起動に約1分かかることがあります。
+1. `npm install`
+2. `npm run cf:dev` でローカルCloudflare環境を起動
+3. `npm run cf:deploy` で公開
+
+`qa/cloudflare-smoke.mjs` は、2人の部屋作成・参加・WebSocket同期・ラウンド完走を確認します。従来のNodeサーバーもWebSocket対応で残してあり、`npm start` で起動できます。Node版の部屋はメモリ保存のため、サーバー再起動で消えます。
+
+公開URLを共有し、1人が部屋を作成して表示された5文字のコードを送ると、別端末から最大8人まで参加できます。`/healthz` で稼働状態を確認できます。
 
 `qa/rare-playthrough.mjs` はレア演出のブラウザ確認専用プリロードです。通常起動では使用しません。演出の進行・キャンセル・短縮表示は `rare-effect.test.mjs` で検証します。

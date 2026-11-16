@@ -6,7 +6,7 @@ import {rareEffectPlan,createRareEffect} from './rare-effect.js';
 const $=id=>document.getElementById(id);
 // Reserve the dock's real height, including wrapped text and device safe areas.
 new ResizeObserver(entries=>{document.body.style.setProperty('--decision-space',`${Math.ceil(entries[0].target.getBoundingClientRect().height)+16}px`);}).observe($('decision-dock'));
-let state=null,session=null,events=null,busy=false,lastCard='',sound=false,audio=null,fx=null,toastTimer,opening=false,openingTimer,rareHighlightTimer;
+let state=null,session=null,events=null,reconnectTimer=null,busy=false,lastCard='',sound=false,audio=null,fx=null,toastTimer,opening=false,openingTimer,rareHighlightTimer;
 let shownResultKey='';
 let previewing=false;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -75,7 +75,7 @@ function renderResults(){
  $('results-host-note').hidden=s.host===s.you;
 }
 function showResults(){if(!state||!['roundOver','finished'].includes(state.phase))return;renderResults();if(!$('results').open)$('results').showModal();shownResultKey=`${state.code}:${state.round}:${state.phase}`;}
-document.querySelector('.brand').onclick=e=>{e.preventDefault();cancelOpening();events?.close();events=null;state=null;session=null;sessionStorage.removeItem('vault-session');history.replaceState(null,'','/');$('home').hidden=false;$('game').hidden=true;document.body.dataset.screen='home';$('connection').textContent='2–8 PLAYERS';};
+document.querySelector('.brand').onclick=e=>{e.preventDefault();cancelOpening();clearTimeout(reconnectTimer);events?.close();events=null;state=null;session=null;sessionStorage.removeItem('vault-session');history.replaceState(null,'','/');$('home').hidden=false;$('game').hidden=true;document.body.dataset.screen='home';$('connection').textContent='2–8 PLAYERS';};
 const invited=new URL(location.href).searchParams.get('room');if(invited)$('code').value=invited.toUpperCase();$('name').value=localStorage.getItem('vault-name')||'';
 async function enter(mode){const name=$('name').value.trim();if(!name){$('name').focus();throw new Error('名前を入力してください。');}localStorage.setItem('vault-name',name);
   if(mode==='join'){const code=$('code').value.trim().toUpperCase();if(!/^[A-Z2-9]{5}$/.test(code))throw new Error('5文字の部屋コードを入力してください。');session=await api(`/api/rooms/${code}/join`,{name});}
@@ -84,7 +84,13 @@ async function enter(mode){const name=$('name').value.trim();if(!name){$('name')
 }
 $('create').onclick=()=>perform(()=>enter('create'));$('join').onclick=()=>perform(()=>enter('join'));$('practice').onclick=()=>perform(async()=>{await enter('practice');await action('start');});
 $('code').addEventListener('input',()=>$('code').value=$('code').value.toUpperCase());
-function connect(){events?.close();$('home').hidden=true;$('game').hidden=false;document.body.dataset.screen='game';history.replaceState(null,'',`?room=${session.code}`);$('connection').textContent='接続中';events=new EventSource(`/api/rooms/${session.code}/events?token=${encodeURIComponent(session.token)}`);events.onmessage=e=>{state=JSON.parse(e.data);$('connection').textContent='LIVE';render();};events.onerror=()=>{$('connection').textContent='再接続中';};initCanvas();}
+function connect(){
+ clearTimeout(reconnectTimer);events?.close();$('home').hidden=true;$('game').hidden=false;document.body.dataset.screen='game';history.replaceState(null,'',`?room=${session.code}`);$('connection').textContent='接続中';
+ const protocol=location.protocol==='https:'?'wss:':'ws:';events=new WebSocket(`${protocol}//${location.host}/api/rooms/${session.code}/socket?token=${encodeURIComponent(session.token)}`);
+ events.onmessage=e=>{state=JSON.parse(e.data);$('connection').textContent='LIVE';render();};
+ events.onclose=()=>{if(!session)return;$('connection').textContent='再接続中';reconnectTimer=setTimeout(connect,1500);};
+ events.onerror=()=>events?.close();initCanvas();
+}
 async function action(type,choice){return api(`/api/rooms/${session.code}/action`,{type,choice,turn:state?.turn,round:state?.round},true);}
 $('invite').onclick=()=>perform(async()=>{const url=`${location.origin}/?room=${session.code}`;try{await navigator.clipboard.writeText(url);toast('招待リンクをコピーしました。');}catch{prompt('このリンクを仲間に送ってください。',url);}});
 function render(){

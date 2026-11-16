@@ -1,6 +1,12 @@
-import { randomInt, randomUUID } from 'node:crypto';
 import {lootPool,lootRange} from './public/loot-catalog.js';
 import {alarmChanceAtDepth} from './public/progression.js';
+
+function randomInt(max){
+  const limit=0x100000000-(0x100000000%max),value=new Uint32Array(1);
+  do crypto.getRandomValues(value);while(value[0]>=limit);
+  return value[0]%max;
+}
+const randomUUID=()=>crypto.randomUUID();
 
 export function player(name, bot=false) {
   return { id:randomUUID(), token:randomUUID(), name:name.trim().slice(0,16)||'怪盗', bot, score:0, active:true, choice:null, gain:0 };
