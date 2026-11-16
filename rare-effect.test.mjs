@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {rareEffectPlan,createRareEffect} from './public/rare-effect.js';
 const rare={type:'treasure',id:'mona-lisa',item:'painting',rarity:'rare',name:'モナ・リザ',value:80};
 const legendary={type:'treasure',id:'blue-diamond',item:'diamond',rarity:'legendary',name:'ブルーダイヤ',value:200};
-const kidsRare={type:'treasure',id:'310-wedding-ring',item:'ring',rarity:'kids-rare',name:'310の結婚指輪',value:198};
+const kidsRare={type:'treasure',id:'310-wedding-ring',item:'ring',rarity:'kids-rare',name:'310の結婚指輪',value:300};
 const dpr={...legendary,rarity:'dpr'};
 function fixture(){
  const nodes=new Map(),root={hidden:true,dataset:{},style:{setProperty(){}},querySelector(selector){if(!nodes.has(selector))nodes.set(selector,{});return nodes.get(selector);}};

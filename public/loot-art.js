@@ -45,6 +45,7 @@ function paintingFor(id){
 }
 export function artFor(card){
  if(!card)return artwork.sealed;if(card.type==='alarm')return artwork.alarm;
+ if(card.rarity==='kids-rare')return `<img class="kids-rare-art" src="/assets/kids-rare/${card.id}.webp" alt="">`;
  const tint=card.tint||'#efcb7b';
  if(card.item==='painting')return paintingFor(card.id);
  if(extras[card.item])return extras[card.item](tint);

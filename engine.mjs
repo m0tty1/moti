@@ -18,7 +18,7 @@ export function newRoom(code, name, bots=0) {
 export function riskProfile(depth, alarm=0) {
   const alarmChance=alarmChanceAtDepth(depth);
   const rareChance=Math.min(30,2+(depth-1)*3);
-  const kidsRareChance=depth>=16 ? .5 : 0;
+  const kidsRareChance=.5;
   const dprChance=depth>=16 ? .1 : 0;
   const fatalWeight=alarm>=2?100:alarm===1?35:0;
   return {depth,alarmChance,rareChance,kidsRareChance,dprChance,...lootRange(depth),bustChance:Math.round(alarmChance*fatalWeight)/100};
