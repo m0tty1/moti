@@ -11,7 +11,7 @@ let masterVolume=savedVolumeRaw!==null&&Number.isFinite(savedVolume)&&savedVolum
 let state=null,session=null,events=null,reconnectTimer=null,busy=false,lastCard='',audio=null,fx=null,toastTimer,opening=false,openingTimer,rareHighlightTimer;
 let shownResultKey='',resultDelayTimer=null,resultDelayKey='';
 let previewing=false;
-const BGM_VOLUME=.28,bgm=new Audio('/assets/heist-music.mp3');let bgmUnlocked=false;bgm.loop=true;bgm.preload='auto';bgm.volume=BGM_VOLUME*masterVolume;
+const BGM_VOLUME=.28,bgm=new Audio('/assets/heist-music.mp3');let bgmUnlocked=false,volumePreviewAt=0;bgm.loop=true;bgm.preload='auto';bgm.volume=BGM_VOLUME*masterVolume;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const rareFX=createRareEffect({root:$('rare-effect'),playSound:playRareSound,onReveal:()=>fx?.burst(false,true)});
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -26,7 +26,7 @@ function uiClick(accent=false){
 }
 function shouldPlayBgm(){return sound&&state&&state.phase!=='lobby'&&document.body.dataset.screen==='game';}
 function syncBgm(){if(shouldPlayBgm()){bgm.volume=BGM_VOLUME*masterVolume;bgm.play().catch(()=>{});}else{bgm.pause();if(!state||document.body.dataset.screen==='home')bgm.currentTime=0;}}
-function unlockBgm(){if(bgmUnlocked)return;bgmUnlocked=true;bgm.volume=0;bgm.play().then(()=>{bgm.pause();bgm.currentTime=0;bgm.volume=BGM_VOLUME*masterVolume;syncBgm();}).catch(()=>{bgm.volume=BGM_VOLUME*masterVolume;});}
+function unlockBgm(){audio?.resume?.().catch(()=>{});if(bgmUnlocked){syncBgm();return;}bgmUnlocked=true;bgm.volume=0;bgm.play().then(()=>{bgm.pause();bgm.currentTime=0;bgm.volume=BGM_VOLUME*masterVolume;syncBgm();}).catch(()=>{bgm.volume=BGM_VOLUME*masterVolume;syncBgm();});}
 function ratchet(duration=1600){if(!sound)return;try{audio||=new AudioContext();audio.resume();const t=audio.currentTime;for(let i=0;i<16;i++){const o=audio.createOscillator(),g=audio.createGain(),at=t+i*.06*duration/1600;o.type='triangle';o.frequency.value=700+(i%3)*170;g.gain.setValueAtTime(.027*masterVolume,at);g.gain.exponentialRampToValueAtTime(.0001,at+.025);o.connect(g);g.connect(audio.destination);o.start(at);o.stop(at+.03);}}catch{}}
 function playRareSound(){const clip=$('rare-sfx');if(!sound)return()=>{};bgm.volume=.035*masterVolume;clip.pause();clip.currentTime=0;clip.volume=.4*masterVolume;clip.play().catch(()=>{});return()=>{clip.pause();clip.currentTime=0;bgm.volume=BGM_VOLUME*masterVolume;syncBgm();};}
 function cancelOpening(){clearTimeout(openingTimer);clearTimeout(rareHighlightTimer);rareFX.cancel();previewing=false;opening=false;document.querySelector('.playfield').classList.remove('opening','rare-arrival','legendary-arrival');$('game').classList.remove('is-opening');}
@@ -53,10 +53,11 @@ function openVault(card,key,puchun){
 }
 $('effects-sound').outerHTML='<label class="effects-volume" for="effects-volume">音量 <input id="effects-volume" type="range" min="0" max="100" step="1" aria-label="演出プレビュー音量"><output id="effects-volume-value"></output></label>';
 function syncVolumeUI(){const value=Math.round(masterVolume*100);for(const id of ['volume','effects-volume'])$(id).value=String(value);$('volume-value').textContent=`${value}%`;$('effects-volume-value').textContent=`${value}%`;}
-function setMasterVolume(value){masterVolume=Math.max(0,Math.min(1,Number(value)/100));sound=masterVolume>0;localStorage.setItem('vault-volume',String(Math.round(masterVolume*100)));syncVolumeUI();syncBgm();if(!sound){$('rare-sfx').pause();$('rare-sfx').currentTime=0;}}
+function previewVolume(){if(!sound)return;const now=performance.now();if(now-volumePreviewAt<120)return;volumePreviewAt=now;uiClick(true);}
+function setMasterVolume(value){const wasMuted=!sound;masterVolume=Math.max(0,Math.min(1,Number(value)/100));sound=masterVolume>0;localStorage.setItem('vault-volume',String(Math.round(masterVolume*100)));syncVolumeUI();if(sound){unlockBgm();if(wasMuted||performance.now()-volumePreviewAt>=120)previewVolume();}else{syncBgm();$('rare-sfx').pause();$('rare-sfx').currentTime=0;}}
 syncVolumeUI();
 document.addEventListener('pointerdown',event=>{const control=event.target.closest('button,a,select');if(!control||control.matches(':disabled'))return;unlockBgm();uiClick(control.matches('.primary,.accent,.stay,.escape'));},{capture:true});
-for(const id of ['volume','effects-volume'])$(id).addEventListener('input',event=>{unlockBgm();setMasterVolume(event.target.value);});
+for(const id of ['volume','effects-volume'])$(id).addEventListener('input',event=>setMasterVolume(event.target.value));
 $('help').onclick=()=>$('rules').showModal();$('close-help').onclick=()=>$('rules').close();
 $('rules').querySelector('ol').innerHTML='<li>Aさん→Bさんの順に、1人ずつ金庫を探索。出たお宝は手番の人の未確保Gに加算。</li><li>手番の人は20秒以内に「さらに漁る」か「脱出」を選択。選択後は次の人へ。</li><li>脱出すると未確保Gとボーナス50 Gを確保。</li><li>警報は全員共通。合計3個で残った全員の未確保Gがゼロ。</li><li>5ラウンドの合計獲得Gで勝負。</li>';
 $('rules').querySelector(':scope>p').textContent='通報率は1%から開始。小型は1回ごとに＋2ポイント、中型は＋3ポイント、大型は＋1ポイント（上限70%）。Kids Rareは0.5%。マイナス効果候補は全金庫、プラス効果候補は大型金庫から出現。効果は引いた本人だけが対象。DPRは大型金庫のみ0.1%。ぷちゅん暗転はKids RareとDPRで発生します。時間切れは自動脱出。';
