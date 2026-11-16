@@ -6,18 +6,29 @@ import {rareEffectPlan,createRareEffect} from './rare-effect.js';
 const $=id=>document.getElementById(id);
 // Reserve the dock's real height, including wrapped text and device safe areas.
 new ResizeObserver(entries=>{document.body.style.setProperty('--decision-space',`${Math.ceil(entries[0].target.getBoundingClientRect().height)+16}px`);}).observe($('decision-dock'));
-let state=null,session=null,events=null,reconnectTimer=null,busy=false,lastCard='',sound=true,audio=null,fx=null,toastTimer,opening=false,openingTimer,rareHighlightTimer;
+const savedVolumeRaw=localStorage.getItem('vault-volume'),savedVolume=Number(savedVolumeRaw);
+let masterVolume=savedVolumeRaw!==null&&Number.isFinite(savedVolume)&&savedVolume>=0&&savedVolume<=100?savedVolume/100:.65,sound=masterVolume>0;
+let state=null,session=null,events=null,reconnectTimer=null,busy=false,lastCard='',audio=null,fx=null,toastTimer,opening=false,openingTimer,rareHighlightTimer;
 let shownResultKey='';
 let previewing=false;
+const BGM_VOLUME=.28,bgm=new Audio('/assets/heist-music.mp3');let bgmUnlocked=false;bgm.loop=true;bgm.preload='auto';bgm.volume=BGM_VOLUME*masterVolume;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const rareFX=createRareEffect({root:$('rare-effect'),playSound:playRareSound,onReveal:()=>fx?.burst(false,true)});
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4000);}
 async function api(path,data,auth=false){const response=await fetch(path,{method:data?'POST':'GET',headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${session.token}`}:{})},...(data?{body:JSON.stringify(data)}:{})});let payload;try{payload=await response.json();}catch{throw new Error('サーバーに接続できません。');}if(!response.ok)throw new Error(payload.error);return payload;}
 async function perform(fn){if(busy)return;busy=true;document.querySelectorAll('#home button').forEach(b=>b.disabled=true);try{await fn();}catch(e){toast(e.message||'接続を確認してください。');}finally{busy=false;document.querySelectorAll('#home button').forEach(b=>b.disabled=false);}}
-function beep(danger=false){if(!sound)return;try{audio||=new AudioContext();audio.resume();const t=audio.currentTime;for(let i=0;i<(danger?2:3);i++){const o=audio.createOscillator(),g=audio.createGain();o.type=danger?'triangle':'sine';o.frequency.value=danger?170-i*40:[523,659,784][i];g.gain.setValueAtTime(0,t+i*.07);g.gain.linearRampToValueAtTime(.05,t+i*.07+.01);g.gain.exponentialRampToValueAtTime(.001,t+i*.07+.18);o.connect(g);g.connect(audio.destination);o.start(t+i*.07);o.stop(t+i*.07+.2);}}catch{}}
-function ratchet(duration=1600){if(!sound)return;try{audio||=new AudioContext();audio.resume();const t=audio.currentTime;for(let i=0;i<16;i++){const o=audio.createOscillator(),g=audio.createGain(),at=t+i*.06*duration/1600;o.type='triangle';o.frequency.value=700+(i%3)*170;g.gain.setValueAtTime(.027,at);g.gain.exponentialRampToValueAtTime(.001,at+.025);o.connect(g);g.connect(audio.destination);o.start(at);o.stop(at+.03);}}catch{}}
-function playRareSound(){const clip=$('rare-sfx');if(!sound)return()=>{};clip.pause();clip.currentTime=0;clip.volume=.4;clip.play().catch(()=>{});return()=>{clip.pause();clip.currentTime=0;};}
+function beep(danger=false){if(!sound)return;try{audio||=new AudioContext();audio.resume();const t=audio.currentTime;for(let i=0;i<(danger?2:3);i++){const o=audio.createOscillator(),g=audio.createGain();o.type=danger?'triangle':'sine';o.frequency.value=danger?170-i*40:[523,659,784][i];g.gain.setValueAtTime(0,t+i*.07);g.gain.linearRampToValueAtTime(.05*masterVolume,t+i*.07+.01);g.gain.exponentialRampToValueAtTime(.0001,t+i*.07+.18);o.connect(g);g.connect(audio.destination);o.start(t+i*.07);o.stop(t+i*.07+.2);}}catch{}}
+function uiClick(accent=false){
+ if(!sound)return;
+  try{audio||=new AudioContext();audio.resume();const t=audio.currentTime,tones=accent?[440,700]:[330,510];for(let i=0;i<tones.length;i++){const at=t+i*.018,o=audio.createOscillator(),filter=audio.createBiquadFilter(),g=audio.createGain();o.type=i?'sine':'triangle';o.frequency.setValueAtTime(tones[i],at);o.frequency.exponentialRampToValueAtTime(tones[i]*(accent?1.055:1.025),at+.07);filter.type='lowpass';filter.frequency.value=accent?2600:1800;g.gain.setValueAtTime(.0001,at);g.gain.exponentialRampToValueAtTime((accent ? .028 : .016)*masterVolume,at+.007);g.gain.exponentialRampToValueAtTime(.0001,at+.095);o.connect(filter);filter.connect(g);g.connect(audio.destination);o.start(at);o.stop(at+.11);}}
+ catch{}
+}
+function shouldPlayBgm(){return sound&&state&&state.phase!=='lobby'&&document.body.dataset.screen==='game';}
+function syncBgm(){if(shouldPlayBgm()){bgm.volume=BGM_VOLUME*masterVolume;bgm.play().catch(()=>{});}else{bgm.pause();if(!state||document.body.dataset.screen==='home')bgm.currentTime=0;}}
+function unlockBgm(){if(bgmUnlocked)return;bgmUnlocked=true;bgm.volume=0;bgm.play().then(()=>{bgm.pause();bgm.currentTime=0;bgm.volume=BGM_VOLUME*masterVolume;syncBgm();}).catch(()=>{bgm.volume=BGM_VOLUME*masterVolume;});}
+function ratchet(duration=1600){if(!sound)return;try{audio||=new AudioContext();audio.resume();const t=audio.currentTime;for(let i=0;i<16;i++){const o=audio.createOscillator(),g=audio.createGain(),at=t+i*.06*duration/1600;o.type='triangle';o.frequency.value=700+(i%3)*170;g.gain.setValueAtTime(.027*masterVolume,at);g.gain.exponentialRampToValueAtTime(.0001,at+.025);o.connect(g);g.connect(audio.destination);o.start(at);o.stop(at+.03);}}catch{}}
+function playRareSound(){const clip=$('rare-sfx');if(!sound)return()=>{};bgm.volume=.035*masterVolume;clip.pause();clip.currentTime=0;clip.volume=.4*masterVolume;clip.play().catch(()=>{});return()=>{clip.pause();clip.currentTime=0;bgm.volume=BGM_VOLUME*masterVolume;syncBgm();};}
 function cancelOpening(){clearTimeout(openingTimer);clearTimeout(rareHighlightTimer);rareFX.cancel();previewing=false;opening=false;document.querySelector('.playfield').classList.remove('opening','rare-arrival','legendary-arrival');$('game').classList.remove('is-opening');}
 function openVault(card,key,dpr){
   cancelOpening();const field=document.querySelector('.playfield');$('card').classList.remove('flip');
@@ -40,9 +51,12 @@ function openVault(card,key,dpr){
   void field.offsetWidth;field.classList.add('opening');ratchet(duration);
   openingTimer=setTimeout(reveal,duration);
 }
-function syncSoundUI(){$('sound').textContent=sound?'音 ON':'音 OFF';$('sound').setAttribute('aria-label',sound?'効果音をオフにする':'効果音をオンにする');$('effects-sound').textContent=sound?'効果音 ON':'効果音 OFF';$('effects-sound').setAttribute('aria-pressed',String(sound));}
-syncSoundUI();
-$('sound').onclick=()=>{sound=!sound;syncSoundUI();if(sound)beep();else $('rare-sfx').pause();};
+$('effects-sound').outerHTML='<label class="effects-volume" for="effects-volume">音量 <input id="effects-volume" type="range" min="0" max="100" step="1" aria-label="演出プレビュー音量"><output id="effects-volume-value"></output></label>';
+function syncVolumeUI(){const value=Math.round(masterVolume*100);for(const id of ['volume','effects-volume'])$(id).value=String(value);$('volume-value').textContent=`${value}%`;$('effects-volume-value').textContent=`${value}%`;}
+function setMasterVolume(value){masterVolume=Math.max(0,Math.min(1,Number(value)/100));sound=masterVolume>0;localStorage.setItem('vault-volume',String(Math.round(masterVolume*100)));syncVolumeUI();syncBgm();if(!sound){$('rare-sfx').pause();$('rare-sfx').currentTime=0;}}
+syncVolumeUI();
+document.addEventListener('pointerdown',event=>{const control=event.target.closest('button,a,select');if(!control||control.matches(':disabled'))return;unlockBgm();uiClick(control.matches('.primary,.accent,.stay,.escape'));},{capture:true});
+for(const id of ['volume','effects-volume'])$(id).addEventListener('input',event=>{unlockBgm();setMasterVolume(event.target.value);});
 $('help').onclick=()=>$('rules').showModal();$('close-help').onclick=()=>$('rules').close();
 $('rules').querySelector('ol').innerHTML='<li>Aさん→Bさんの順に、1人ずつ金庫を探索。出たお宝は手番の人の未確保Gに加算。</li><li>手番の人は20秒以内に「さらに漁る」か「脱出」を選択。選択後は次の人へ。</li><li>脱出すると未確保Gとボーナス50 Gを確保。</li><li>警報は全員共通。合計3個で残った全員の未確保Gがゼロ。</li><li>5ラウンドの合計獲得Gで勝負。</li>';
 $('rules').querySelector(':scope>p').textContent='通報率は1%から開始。小型は1回ごとに＋2ポイント、中型は＋3ポイント、大型は＋1ポイント（上限70%）。DPRは大型金庫のみ0.1%。ぷちゅん暗転はDPRのときだけ発生します。時間切れは自動脱出。';
@@ -50,7 +64,7 @@ const dprOption=document.createElement('option');dprOption.value='dpr';dprOption
 function renderCatalog(){const sections=catalogSections(LOOT_CATALOG,$('catalog-filter').value);$('catalog-grid').innerHTML=sections.map(section=>`<h3 class="catalog-section-heading">${section.label}<span>${section.items.length}種類</span></h3>${section.items.map(p=>`<article class="catalog-card ${p.rarity}"><div class="catalog-art" aria-hidden="true">${artFor(p)}</div><small>${p.rarity==='common'?'TREASURE':p.rarity==='dpr'?'DPR':p.rarity==='legendary'?'LEGENDARY':'RARE'}</small><h3>${esc(p.name)}</h3><strong>${p.value}<span> G</span></strong><p>${p.vaults.map(key=>VAULT_STAGES.find(s=>s.key===key).label).join(' / ')}</p></article>`).join('')}`).join('');}
 $('catalog-open').onclick=()=>{renderCatalog();$('catalog').showModal();};$('close-catalog').onclick=()=>$('catalog').close();$('catalog-filter').onchange=renderCatalog;
 $('home-catalog').onclick=()=>$('catalog-open').click();$('home-help').onclick=()=>$('help').click();
-$('home-effects').onclick=()=>$('effects').showModal();$('close-effects').onclick=()=>$('effects').close();$('effects-sound').onclick=()=>$('sound').click();
+$('home-effects').onclick=()=>$('effects').showModal();$('close-effects').onclick=()=>$('effects').close();
 const effectCard=LOOT_CATALOG.find(p=>p.rarity==='dpr');
 $('effects').querySelector(':scope>p').textContent='ゲーム中に発生する特殊演出を紹介します。';
 $('effects').querySelector('.effects-toolbar>span').textContent='「プチュン」音声付きで試せます';
@@ -77,7 +91,7 @@ function renderResults(){
  $('results-host-note').hidden=s.host===s.you;
 }
 function showResults(){if(!state||!['roundOver','finished'].includes(state.phase))return;renderResults();if(!$('results').open)$('results').showModal();shownResultKey=`${state.code}:${state.round}:${state.phase}`;}
-document.querySelector('.brand').onclick=e=>{e.preventDefault();cancelOpening();clearTimeout(reconnectTimer);events?.close();events=null;state=null;session=null;sessionStorage.removeItem('vault-session');history.replaceState(null,'','/');$('home').hidden=false;$('game').hidden=true;document.body.dataset.screen='home';$('connection').textContent='2–8 PLAYERS';};
+document.querySelector('.brand').onclick=e=>{e.preventDefault();cancelOpening();clearTimeout(reconnectTimer);events?.close();events=null;state=null;session=null;sessionStorage.removeItem('vault-session');history.replaceState(null,'','/');$('home').hidden=false;$('game').hidden=true;document.body.dataset.screen='home';$('connection').textContent='2–8 PLAYERS';syncBgm();};
 const invited=new URL(location.href).searchParams.get('room');if(/^\d{4}$/.test(invited||''))$('code').value=invited;$('code').oninput=()=>{$('code').value=$('code').value.replace(/\D/g,'').slice(0,4);};$('name').value=localStorage.getItem('vault-name')||'';
 async function enter(mode){const name=$('name').value.trim();if(!name){$('name').focus();throw new Error('名前を入力してください。');}localStorage.setItem('vault-name',name);
   if(mode==='join'){const code=$('code').value.trim();if(!/^\d{4}$/.test(code))throw new Error('数字4桁の部屋コードを入力してください。');session=await api(`/api/rooms/${code}/join`,{name});}
@@ -89,7 +103,7 @@ $('code').addEventListener('input',()=>$('code').value=$('code').value.toUpperCa
 function connect(){
  clearTimeout(reconnectTimer);events?.close();$('home').hidden=true;$('game').hidden=false;document.body.dataset.screen='game';history.replaceState(null,'',`?room=${session.code}`);$('connection').textContent='接続中';
  const protocol=location.protocol==='https:'?'wss:':'ws:';events=new WebSocket(`${protocol}//${location.host}/api/rooms/${session.code}/socket?token=${encodeURIComponent(session.token)}`);
- events.onmessage=e=>{state=JSON.parse(e.data);$('connection').textContent='LIVE';render();};
+ events.onmessage=e=>{state=JSON.parse(e.data);$('connection').textContent='LIVE';render();syncBgm();};
  events.onclose=()=>{if(!session)return;$('connection').textContent='再接続中';reconnectTimer=setTimeout(connect,1500);};
  events.onerror=()=>events?.close();initCanvas();
 }
