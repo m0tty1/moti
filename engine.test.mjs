@@ -6,6 +6,7 @@ import {LOOT_CATALOG,lootPool} from './public/loot-catalog.js';
 import {artFor} from './public/loot-art.js';
 const safe=limit=>limit===10000?9999:0;
 const sequence=values=>()=>values.shift();
+function drawKids(room,id,extra=[]){const depth=room.turn+1,pool=lootPool(depth,'kids-rare'),index=pool.findIndex(item=>item.id===id);assert.ok(index>=0);draw(room,sequence([9999,9999,0,index,...extra]));return room.history.at(-1);}
 
 test('単独脱出に50G、二重警報で封鎖されても確保済みの点は残る',()=>{
  const r=newRoom('1234','A',1);startRound(r,safe);r.players[0].pot=100;r.players[0].choice='escape';
@@ -32,6 +33,20 @@ test('通常レア・Kids Rare・DPRを固定金額で抽選',()=>{
  const kidsPool=lootPool(16,'kids-rare'),kidsIndex=kidsPool.findIndex(p=>p.id==='310-wedding-ring');const kids=rollLoot(16,sequence([9999,9999,0,kidsIndex]));assert.equal(kids.id,'310-wedding-ring');assert.equal(kids.value,310);assert.equal(kids.rarity,'kids-rare');assert.equal(kids.effectScope,'owner');
  const dpr=rollLoot(16,sequence([9999,0,0]));assert.equal(dpr.id,'blue-diamond');assert.equal(dpr.value,250);assert.equal(dpr.rarity,'dpr');
  let dprHits=0,kidsHits=0;for(let roll=0;roll<10000;roll++){const card=rollLoot(16,sequence(roll<10?[9999,roll,0]:roll<60?[9999,9999,roll-10,0]:[9999,9999,9999,9999,0]));if(card.rarity==='dpr')dprHits++;if(card.rarity==='kids-rare')kidsHits++;}assert.equal(dprHits,10);assert.equal(kidsHits,50);
+});
+test('Kids Rareのマイナス効果5種は引いた本人だけに発動',()=>{
+ const screw=newRoom('1001','A');drawKids(screw,'hikage-broken-screw');screw.players[0].choice='escape';assert.ok(resolve(screw));assert.equal(screw.players[0].active,true);assert.match(screw.event,/脱出できず/);
+ const briefs=newRoom('1002','A');briefs.players[0].pot=100;drawKids(briefs,'ryo-briefs');assert.equal(briefs.players[0].pot,55);
+ const tooth=newRoom('1003','A');drawKids(tooth,'kanade-wisdom-tooth');tooth.players[0].choice='escape';resolve(tooth);assert.equal(tooth.players[0].score,10);assert.match(tooth.event,/\+0 G/);
+ const tape=newRoom('1004','A');tape.players[0].pot=100;drawKids(tape,'kaoru-secret-call-tape');assert.equal(tape.players[0].pot,84);
+ const burger=newRoom('1005','A');drawKids(burger,'yoru-mac-double-cheeseburger');burger.players[0].choice='stay';resolve(burger);advance(burger,safe);assert.equal(burger.players[0].pot,31);assert.equal(burger.players[0].nextLootMultiplier,1);
+});
+test('Kids Rareのプラス効果5種は警報回避・成長・抽選・封鎖保護を行う',()=>{
+ const glasses=newRoom('2001','A');glasses.turn=15;drawKids(glasses,'koikoi-golden-glasses');glasses.players[0].choice='stay';resolve(glasses);advance(glasses,sequence([0,0]));assert.equal(glasses.alarm,0);assert.equal(glasses.history.at(-1).cancelled,true);
+ const board=newRoom('2002','A');board.turn=15;drawKids(board,'yukiya-board-game');board.players[0].choice='stay';resolve(board);advance(board,sequence([0,0,9999,9999,9999,9999,0]));assert.equal(board.alarm,0);assert.equal(board.history.at(-1).type,'treasure');assert.match(board.history.at(-1).effectText,/引き直した/);
+ const crystal=newRoom('2003','A');crystal.turn=15;drawKids(crystal,'yawara-farm-crystal');crystal.players[0].choice='stay';resolve(crystal);assert.equal(crystal.players[0].pot,270);
+ const lose=newRoom('2004','A');lose.turn=15;assert.equal(drawKids(lose,'poppingami-golden-pachinko-ball',[0]).value,0);const win=newRoom('2005','A');win.turn=15;assert.equal(drawKids(win,'poppingami-golden-pachinko-ball',[1]).value,560);
+ const ring=newRoom('2006','A');ring.turn=15;drawKids(ring,'310-wedding-ring');ring.players[0].choice='stay';resolve(ring);ring.alarm=2;advance(ring,sequence([0,0]));assert.equal(ring.phase,'roundOver');assert.equal(ring.players[0].score,310);assert.equal(ring.players[0].protected,true);
 });
 test('表示する警報率が抽選しきい値と一致し、即アウト率は警報数を反映',()=>{
  for(const depth of [1,6,12,25]){let alarms=0;for(let roll=0;roll<10000;roll++){let first=true;const c=rollLoot(depth,limit=>{if(first){first=false;return roll;}return limit===10000?9999:0;});if(c.type==='alarm')alarms++;}assert.equal(alarms/100,riskProfile(depth).alarmChance);}

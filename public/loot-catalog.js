@@ -76,6 +76,18 @@ const kidsRare=[
  ['poppingami-golden-pachinko-ball','ぽっぴんがみの黄金のパチンコ玉','coin',280,'#ffd54e',16,'positive'],
  ['310-wedding-ring','310の結婚指輪','ring',310,'#f5d9a0',16,'positive']
 ];
+const kidsRareEffects=Object.freeze({
+ 'hikage-broken-screw':{effectKey:'forced-stay',effectName:'頭のネジが飛ぶ',effectDescription:'この手番は脱出できない'},
+ 'ryo-briefs':{effectKey:'pot-minus-50',effectName:'強烈な悪臭',effectDescription:'未確保Gを最大50G失う'},
+ 'kanade-wisdom-tooth':{effectKey:'no-escape-bonus',effectName:'激痛',effectDescription:'このラウンドの脱出ボーナスが0G'},
+ 'kaoru-secret-call-tape':{effectKey:'pot-minus-30pct',effectName:'音声流出',effectDescription:'未確保Gを30%失う'},
+ 'yoru-mac-double-cheeseburger':{effectKey:'next-loot-half',effectName:'食べ過ぎ',effectDescription:'次に得るお宝が半額'},
+ 'koikoi-golden-glasses':{effectKey:'cancel-alarm',effectName:'未来視',effectDescription:'次の警報を一度だけ無効化'},
+ 'yukiya-board-game':{effectKey:'reroll-alarm',effectName:'ルール変更',effectDescription:'次の警報を一度だけ引き直す'},
+ 'yawara-farm-crystal':{effectKey:'stay-growth',effectName:'7年熟成',effectDescription:'探索を続けるたび未確保G＋20'},
+ 'poppingami-golden-pachinko-ball':{effectKey:'double-or-zero',effectName:'大当たり抽選',effectDescription:'50%で560G、50%で0G'},
+ '310-wedding-ring':{effectKey:'bust-shield',effectName:'永遠の誓い',effectDescription:'封鎖時に未確保Gを一度だけ守る'}
+});
 const smallCommon=new Set(['loose-coins','old-coins','banknotes','coin-rolls','cash-bundle','cash-case','silver-ring','gold-ring','signet-ring','silver-necklace','silver-bar','gold-bar','silver-pen']);
 const sharedWithMedium=new Set(['cash-case','gold-bar']);
 const smallRare=new Set(['rare-stamp','commemorative-coin']);
@@ -92,7 +104,7 @@ function assignVaults(entry){
 export const LOOT_CATALOG=Object.freeze([
  ...common.map(([id,name,item,value,tint])=>assignVaults({id,name,item,value,tint,rarity:'common',minDepth:value<=15?1:value<=30?3:value<=45?6:9})),
  ...rare.map(([id,name,item,value,tint,minDepth])=>assignVaults({id,name,item,value,tint,minDepth,rarity:id==='blue-diamond'?'dpr':value>=160?'legendary':'rare'})),
- ...kidsRare.map(([id,name,item,value,tint,minDepth,effectPolarity])=>assignVaults({id,name,item,value,tint,minDepth,effectPolarity,effectScope:'owner',rarity:'kids-rare'}))
+ ...kidsRare.map(([id,name,item,value,tint,minDepth,effectPolarity])=>assignVaults({id,name,item,value,tint,minDepth,effectPolarity,effectScope:'owner',...kidsRareEffects[id],rarity:'kids-rare'}))
 ]);
 export function lootPool(depth,tier='common'){
  const stage=vaultStage(depth);
