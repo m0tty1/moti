@@ -29,7 +29,7 @@ test('探索で警報率・通常報酬・レア率が増加し、上限を超�
 });
 test('通常レア・Kids Rare・DPRを固定金額で抽選',()=>{
  for(const [id,depth,value]of [['mona-lisa',16,80],['royal-crown',11,120]]){const pool=lootPool(depth,'rare'),index=pool.findIndex(p=>p.id===id);assert.ok(index>=0);const card=rollLoot(depth,sequence([9999,9999,9999,0,index]));assert.equal(card.id,id);assert.equal(card.value,value);}
- const kidsPool=lootPool(16,'kids-rare'),kidsIndex=kidsPool.findIndex(p=>p.id==='310-wedding-ring');const kids=rollLoot(16,sequence([9999,9999,0,kidsIndex]));assert.equal(kids.id,'310-wedding-ring');assert.equal(kids.value,300);assert.equal(kids.rarity,'kids-rare');
+ const kidsPool=lootPool(16,'kids-rare'),kidsIndex=kidsPool.findIndex(p=>p.id==='310-wedding-ring');const kids=rollLoot(16,sequence([9999,9999,0,kidsIndex]));assert.equal(kids.id,'310-wedding-ring');assert.equal(kids.value,310);assert.equal(kids.rarity,'kids-rare');assert.equal(kids.effectScope,'owner');
  const dpr=rollLoot(16,sequence([9999,0,0]));assert.equal(dpr.id,'blue-diamond');assert.equal(dpr.value,250);assert.equal(dpr.rarity,'dpr');
  let dprHits=0,kidsHits=0;for(let roll=0;roll<10000;roll++){const card=rollLoot(16,sequence(roll<10?[9999,roll,0]:roll<60?[9999,9999,roll-10,0]:[9999,9999,9999,9999,0]));if(card.rarity==='dpr')dprHits++;if(card.rarity==='kids-rare')kidsHits++;}assert.equal(dprHits,10);assert.equal(kidsHits,50);
 });
@@ -52,7 +52,7 @@ test('金庫ごとの出現品を固定し、小型や中型から大型限定�
 });
 test('70種類すべてが抽選可能で、個別のGが固定されている',()=>{
  assert.equal(LOOT_CATALOG.length,70);assert.equal(new Set(LOOT_CATALOG.map(p=>p.id)).size,70);assert.equal(new Set(LOOT_CATALOG.map(p=>p.name)).size,70);
- assert.equal(LOOT_CATALOG.filter(p=>p.rarity==='common').length,36);assert.equal(LOOT_CATALOG.filter(p=>p.rarity==='kids-rare').length,10);assert.equal(LOOT_CATALOG.filter(p=>p.effectPolarity==='negative').length,5);assert.equal(Math.min(...LOOT_CATALOG.filter(p=>p.rarity==='kids-rare').map(p=>p.value)),1);assert.equal(Math.max(...LOOT_CATALOG.filter(p=>p.rarity==='kids-rare').map(p=>p.value)),300);
+ assert.equal(LOOT_CATALOG.filter(p=>p.rarity==='common').length,36);assert.equal(LOOT_CATALOG.filter(p=>p.rarity==='kids-rare').length,10);assert.equal(LOOT_CATALOG.filter(p=>p.effectPolarity==='negative').length,5);assert.ok(LOOT_CATALOG.filter(p=>p.rarity==='kids-rare').every(p=>p.effectScope==='owner'));assert.equal(Math.min(...LOOT_CATALOG.filter(p=>p.rarity==='kids-rare').map(p=>p.value)),1);assert.equal(Math.max(...LOOT_CATALOG.filter(p=>p.rarity==='kids-rare').map(p=>p.value)),310);
  for(const item of LOOT_CATALOG){assert.ok(Number.isInteger(item.value)&&item.value>0);const tier=item.rarity==='common'?'common':item.rarity==='dpr'?'dpr':item.rarity==='kids-rare'?'kids-rare':'rare';let checked=0;for(const depth of [item.minDepth,item.minDepth+1,item.minDepth+2]){const pool=lootPool(depth,tier),index=pool.findIndex(p=>p.id===item.id);if(index<0)continue;const rolls=tier==='dpr'?[9999,0,index]:tier==='kids-rare'?[9999,9999,0,index]:tier==='rare'?[9999,9999,9999,0,index]:[9999,9999,9999,9999,index];const card=rollLoot(depth,sequence(rolls));assert.equal(card.id,item.id);assert.equal(card.value,item.value);checked++;}assert.ok(checked>0);}
 });
 test('70種類のお宝に別々の絵があり、どの探索回でも金額範囲に収まる',()=>{

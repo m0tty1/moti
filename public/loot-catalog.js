@@ -74,7 +74,7 @@ const kidsRare=[
  ['yukiya-board-game','雪哉の大切なボードゲーム','boardgame',210,'#86b5da',16,'positive'],
  ['yawara-farm-crystal','やわらの7年ファームの結晶','gem',250,'#86edc5',16,'positive'],
  ['poppingami-golden-pachinko-ball','ぽっぴんがみの黄金のパチンコ玉','coin',280,'#ffd54e',16,'positive'],
- ['310-wedding-ring','310の結婚指輪','ring',300,'#f5d9a0',16,'positive']
+ ['310-wedding-ring','310の結婚指輪','ring',310,'#f5d9a0',16,'positive']
 ];
 const smallCommon=new Set(['loose-coins','old-coins','banknotes','coin-rolls','cash-bundle','cash-case','silver-ring','gold-ring','signet-ring','silver-necklace','silver-bar','gold-bar','silver-pen']);
 const sharedWithMedium=new Set(['cash-case','gold-bar']);
@@ -92,7 +92,7 @@ function assignVaults(entry){
 export const LOOT_CATALOG=Object.freeze([
  ...common.map(([id,name,item,value,tint])=>assignVaults({id,name,item,value,tint,rarity:'common',minDepth:value<=15?1:value<=30?3:value<=45?6:9})),
  ...rare.map(([id,name,item,value,tint,minDepth])=>assignVaults({id,name,item,value,tint,minDepth,rarity:id==='blue-diamond'?'dpr':value>=160?'legendary':'rare'})),
- ...kidsRare.map(([id,name,item,value,tint,minDepth,effectPolarity])=>assignVaults({id,name,item,value,tint,minDepth,effectPolarity,rarity:'kids-rare'}))
+ ...kidsRare.map(([id,name,item,value,tint,minDepth,effectPolarity])=>assignVaults({id,name,item,value,tint,minDepth,effectPolarity,effectScope:'owner',rarity:'kids-rare'}))
 ]);
 export function lootPool(depth,tier='common'){
  const stage=vaultStage(depth);
