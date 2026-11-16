@@ -1,5 +1,7 @@
 # 金庫ブレイク / VAULT BREAK
 
+公開版: https://vault-break.vault-break.workers.dev/
+
 Game StudioのPhaser構成で作った、2〜8人の同時選択ブラウザカードゲーム。Node.js 22以上が必要です。追加のパッケージインストールは不要です。
 
 1. このフォルダーで `node server.mjs` を実行。
