@@ -3,6 +3,7 @@ import { vaultStage,VAULT_STAGES } from './progression.js';
 import {LOOT_CATALOG} from './loot-catalog.js';
 import {catalogSections,rankPlayers,outsideBounds,resultRevealDelay} from './view-model.js';
 import {rareEffectPlan,createRareEffect} from './rare-effect.js';
+import {perceptualGain} from './audio-level.js';
 const $=id=>document.getElementById(id);
 // Reserve the dock's real height, including wrapped text and device safe areas.
 new ResizeObserver(entries=>{document.body.style.setProperty('--decision-space',`${Math.ceil(entries[0].target.getBoundingClientRect().height)+16}px`);}).observe($('decision-dock'));
@@ -11,24 +12,25 @@ let masterVolume=savedVolumeRaw!==null&&Number.isFinite(savedVolume)&&savedVolum
 let state=null,session=null,events=null,reconnectTimer=null,busy=false,lastCard='',audio=null,fx=null,toastTimer,opening=false,openingTimer,rareHighlightTimer;
 let shownResultKey='',resultDelayTimer=null,resultDelayKey='';
 let previewing=false;
-const BGM_VOLUME=.28,bgm=new Audio('/assets/heist-music.mp3');let bgmUnlocked=false,volumePreviewAt=0;bgm.loop=true;bgm.preload='auto';bgm.volume=BGM_VOLUME*masterVolume;
+const volumeGain=()=>perceptualGain(masterVolume);
+const BGM_VOLUME=.28,bgm=new Audio('/assets/heist-music.mp3');let bgmUnlocked=false,volumePreviewAt=0;bgm.loop=true;bgm.preload='auto';bgm.volume=BGM_VOLUME*volumeGain();
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const rareFX=createRareEffect({root:$('rare-effect'),playSound:playRareSound,onReveal:()=>fx?.burst(false,true)});
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4000);}
 async function api(path,data,auth=false){const response=await fetch(path,{method:data?'POST':'GET',headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${session.token}`}:{})},...(data?{body:JSON.stringify(data)}:{})});let payload;try{payload=await response.json();}catch{throw new Error('サーバーに接続できません。');}if(!response.ok)throw new Error(payload.error);return payload;}
 async function perform(fn){if(busy)return;busy=true;document.querySelectorAll('#home button').forEach(b=>b.disabled=true);try{await fn();}catch(e){toast(e.message||'接続を確認してください。');}finally{busy=false;document.querySelectorAll('#home button').forEach(b=>b.disabled=false);}}
-function beep(danger=false){if(!sound)return;try{audio||=new AudioContext();audio.resume();const t=audio.currentTime;for(let i=0;i<(danger?2:3);i++){const o=audio.createOscillator(),g=audio.createGain();o.type=danger?'triangle':'sine';o.frequency.value=danger?170-i*40:[523,659,784][i];g.gain.setValueAtTime(0,t+i*.07);g.gain.linearRampToValueAtTime(.05*masterVolume,t+i*.07+.01);g.gain.exponentialRampToValueAtTime(.0001,t+i*.07+.18);o.connect(g);g.connect(audio.destination);o.start(t+i*.07);o.stop(t+i*.07+.2);}}catch{}}
+function beep(danger=false){if(!sound)return;try{audio||=new AudioContext();audio.resume();const t=audio.currentTime;for(let i=0;i<(danger?2:3);i++){const o=audio.createOscillator(),g=audio.createGain();o.type=danger?'triangle':'sine';o.frequency.value=danger?170-i*40:[523,659,784][i];g.gain.setValueAtTime(0,t+i*.07);g.gain.linearRampToValueAtTime(.05*volumeGain(),t+i*.07+.01);g.gain.exponentialRampToValueAtTime(.0001,t+i*.07+.18);o.connect(g);g.connect(audio.destination);o.start(t+i*.07);o.stop(t+i*.07+.2);}}catch{}}
 function uiClick(accent=false){
  if(!sound)return;
-  try{audio||=new AudioContext();audio.resume();const t=audio.currentTime,tones=accent?[440,700]:[330,510];for(let i=0;i<tones.length;i++){const at=t+i*.018,o=audio.createOscillator(),filter=audio.createBiquadFilter(),g=audio.createGain();o.type=i?'sine':'triangle';o.frequency.setValueAtTime(tones[i],at);o.frequency.exponentialRampToValueAtTime(tones[i]*(accent?1.055:1.025),at+.07);filter.type='lowpass';filter.frequency.value=accent?2600:1800;g.gain.setValueAtTime(.0001,at);g.gain.exponentialRampToValueAtTime((accent ? .028 : .016)*masterVolume,at+.007);g.gain.exponentialRampToValueAtTime(.0001,at+.095);o.connect(filter);filter.connect(g);g.connect(audio.destination);o.start(at);o.stop(at+.11);}}
+  try{audio||=new AudioContext();audio.resume();const t=audio.currentTime,tones=accent?[440,700]:[330,510];for(let i=0;i<tones.length;i++){const at=t+i*.018,o=audio.createOscillator(),filter=audio.createBiquadFilter(),g=audio.createGain();o.type=i?'sine':'triangle';o.frequency.setValueAtTime(tones[i],at);o.frequency.exponentialRampToValueAtTime(tones[i]*(accent?1.055:1.025),at+.07);filter.type='lowpass';filter.frequency.value=accent?2600:1800;g.gain.setValueAtTime(.0001,at);g.gain.exponentialRampToValueAtTime((accent ? .028 : .016)*volumeGain(),at+.007);g.gain.exponentialRampToValueAtTime(.0001,at+.095);o.connect(filter);filter.connect(g);g.connect(audio.destination);o.start(at);o.stop(at+.11);}}
  catch{}
 }
 function shouldPlayBgm(){return sound&&state&&state.phase!=='lobby'&&document.body.dataset.screen==='game';}
-function syncBgm(){if(shouldPlayBgm()){bgm.volume=BGM_VOLUME*masterVolume;bgm.play().catch(()=>{});}else{bgm.pause();if(!state||document.body.dataset.screen==='home')bgm.currentTime=0;}}
-function unlockBgm(){audio?.resume?.().catch(()=>{});if(bgmUnlocked){syncBgm();return;}bgmUnlocked=true;bgm.volume=0;bgm.play().then(()=>{bgm.pause();bgm.currentTime=0;bgm.volume=BGM_VOLUME*masterVolume;syncBgm();}).catch(()=>{bgm.volume=BGM_VOLUME*masterVolume;syncBgm();});}
-function ratchet(duration=1600){if(!sound)return;try{audio||=new AudioContext();audio.resume();const t=audio.currentTime;for(let i=0;i<16;i++){const o=audio.createOscillator(),g=audio.createGain(),at=t+i*.06*duration/1600;o.type='triangle';o.frequency.value=700+(i%3)*170;g.gain.setValueAtTime(.027*masterVolume,at);g.gain.exponentialRampToValueAtTime(.0001,at+.025);o.connect(g);g.connect(audio.destination);o.start(at);o.stop(at+.03);}}catch{}}
-function playRareSound(){const clip=$('rare-sfx');if(!sound)return()=>{};bgm.volume=.035*masterVolume;clip.pause();clip.currentTime=0;clip.volume=.4*masterVolume;clip.play().catch(()=>{});return()=>{clip.pause();clip.currentTime=0;bgm.volume=BGM_VOLUME*masterVolume;syncBgm();};}
+function syncBgm(){if(shouldPlayBgm()){bgm.volume=BGM_VOLUME*volumeGain();bgm.play().catch(()=>{});}else{bgm.pause();if(!state||document.body.dataset.screen==='home')bgm.currentTime=0;}}
+function unlockBgm(){audio?.resume?.().catch(()=>{});if(bgmUnlocked){syncBgm();return;}bgmUnlocked=true;bgm.volume=0;bgm.play().then(()=>{bgm.pause();bgm.currentTime=0;bgm.volume=BGM_VOLUME*volumeGain();syncBgm();}).catch(()=>{bgm.volume=BGM_VOLUME*volumeGain();syncBgm();});}
+function ratchet(duration=1600){if(!sound)return;try{audio||=new AudioContext();audio.resume();const t=audio.currentTime;for(let i=0;i<16;i++){const o=audio.createOscillator(),g=audio.createGain(),at=t+i*.06*duration/1600;o.type='triangle';o.frequency.value=700+(i%3)*170;g.gain.setValueAtTime(.027*volumeGain(),at);g.gain.exponentialRampToValueAtTime(.0001,at+.025);o.connect(g);g.connect(audio.destination);o.start(at);o.stop(at+.03);}}catch{}}
+function playRareSound(){const clip=$('rare-sfx');if(!sound)return()=>{};bgm.volume=.035*volumeGain();clip.pause();clip.currentTime=0;clip.volume=.4*volumeGain();clip.play().catch(()=>{});return()=>{clip.pause();clip.currentTime=0;bgm.volume=BGM_VOLUME*volumeGain();syncBgm();};}
 function cancelOpening(){clearTimeout(openingTimer);clearTimeout(rareHighlightTimer);rareFX.cancel();previewing=false;opening=false;document.querySelector('.playfield').classList.remove('opening','rare-arrival','legendary-arrival');$('game').classList.remove('is-opening');}
 function openVault(card,key,puchun){
   cancelOpening();const field=document.querySelector('.playfield');$('card').classList.remove('flip');
