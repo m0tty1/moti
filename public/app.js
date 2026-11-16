@@ -6,7 +6,7 @@ import {rareEffectPlan,createRareEffect} from './rare-effect.js';
 const $=id=>document.getElementById(id);
 // Reserve the dock's real height, including wrapped text and device safe areas.
 new ResizeObserver(entries=>{document.body.style.setProperty('--decision-space',`${Math.ceil(entries[0].target.getBoundingClientRect().height)+16}px`);}).observe($('decision-dock'));
-let state=null,session=null,events=null,reconnectTimer=null,busy=false,lastCard='',sound=false,audio=null,fx=null,toastTimer,opening=false,openingTimer,rareHighlightTimer;
+let state=null,session=null,events=null,reconnectTimer=null,busy=false,lastCard='',sound=true,audio=null,fx=null,toastTimer,opening=false,openingTimer,rareHighlightTimer;
 let shownResultKey='';
 let previewing=false;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -17,7 +17,7 @@ async function api(path,data,auth=false){const response=await fetch(path,{method
 async function perform(fn){if(busy)return;busy=true;document.querySelectorAll('#home button').forEach(b=>b.disabled=true);try{await fn();}catch(e){toast(e.message||'接続を確認してください。');}finally{busy=false;document.querySelectorAll('#home button').forEach(b=>b.disabled=false);}}
 function beep(danger=false){if(!sound)return;try{audio||=new AudioContext();audio.resume();const t=audio.currentTime;for(let i=0;i<(danger?2:3);i++){const o=audio.createOscillator(),g=audio.createGain();o.type=danger?'triangle':'sine';o.frequency.value=danger?170-i*40:[523,659,784][i];g.gain.setValueAtTime(0,t+i*.07);g.gain.linearRampToValueAtTime(.05,t+i*.07+.01);g.gain.exponentialRampToValueAtTime(.001,t+i*.07+.18);o.connect(g);g.connect(audio.destination);o.start(t+i*.07);o.stop(t+i*.07+.2);}}catch{}}
 function ratchet(duration=1600){if(!sound)return;try{audio||=new AudioContext();audio.resume();const t=audio.currentTime;for(let i=0;i<16;i++){const o=audio.createOscillator(),g=audio.createGain(),at=t+i*.06*duration/1600;o.type='triangle';o.frequency.value=700+(i%3)*170;g.gain.setValueAtTime(.027,at);g.gain.exponentialRampToValueAtTime(.001,at+.025);o.connect(g);g.connect(audio.destination);o.start(at);o.stop(at+.03);}}catch{}}
-function playRareSound(){const clip=$('rare-sfx');if(!sound)return()=>{};clip.pause();clip.currentTime=0;clip.volume=.8;clip.play().catch(()=>{});return()=>{clip.pause();clip.currentTime=0;};}
+function playRareSound(){const clip=$('rare-sfx');if(!sound)return()=>{};clip.pause();clip.currentTime=0;clip.volume=.4;clip.play().catch(()=>{});return()=>{clip.pause();clip.currentTime=0;};}
 function cancelOpening(){clearTimeout(openingTimer);clearTimeout(rareHighlightTimer);rareFX.cancel();previewing=false;opening=false;document.querySelector('.playfield').classList.remove('opening','rare-arrival','legendary-arrival');$('game').classList.remove('is-opening');}
 function openVault(card,key,rare){
   cancelOpening();const field=document.querySelector('.playfield');$('card').classList.remove('flip');
@@ -40,7 +40,9 @@ function openVault(card,key,rare){
   void field.offsetWidth;field.classList.add('opening');ratchet(duration);
   openingTimer=setTimeout(reveal,duration);
 }
-$('sound').onclick=()=>{sound=!sound;$('sound').textContent=sound?'音 ON':'音 OFF';$('sound').setAttribute('aria-label',sound?'効果音をオフにする':'効果音をオンにする');$('effects-sound').textContent=sound?'効果音 ON':'効果音 OFF';$('effects-sound').setAttribute('aria-pressed',String(sound));if(sound)beep();else $('rare-sfx').pause();};
+function syncSoundUI(){$('sound').textContent=sound?'音 ON':'音 OFF';$('sound').setAttribute('aria-label',sound?'効果音をオフにする':'効果音をオンにする');$('effects-sound').textContent=sound?'効果音 ON':'効果音 OFF';$('effects-sound').setAttribute('aria-pressed',String(sound));}
+syncSoundUI();
+$('sound').onclick=()=>{sound=!sound;syncSoundUI();if(sound)beep();else $('rare-sfx').pause();};
 $('help').onclick=()=>$('rules').showModal();$('close-help').onclick=()=>$('rules').close();
 function renderCatalog(){const sections=catalogSections(LOOT_CATALOG,$('catalog-filter').value);$('catalog-grid').innerHTML=sections.map(section=>`<h3 class="catalog-section-heading">${section.label}<span>${section.items.length}種類</span></h3>${section.items.map(p=>`<article class="catalog-card ${p.rarity}"><div class="catalog-art" aria-hidden="true">${artFor(p)}</div><small>${p.rarity==='common'?'TREASURE':p.rarity==='legendary'?'LEGENDARY':'RARE'}</small><h3>${esc(p.name)}</h3><strong>${p.value}<span> G</span></strong><p>${p.vaults.map(key=>VAULT_STAGES.find(s=>s.key===key).label).join(' / ')}</p></article>`).join('')}`).join('');}
 $('catalog-open').onclick=()=>{renderCatalog();$('catalog').showModal();};$('close-catalog').onclick=()=>$('catalog').close();$('catalog-filter').onchange=renderCatalog;
